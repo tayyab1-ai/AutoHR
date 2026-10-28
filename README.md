@@ -1,8 +1,6 @@
 # AutoHR
 
-A Pakistan-localized hiring workspace for HR teams. This repository is the **frontend demo**: a Django project that renders the landing page, account screens, and HR dashboard with realistic sample data so the interface can be reviewed before it is connected to a database or the automation pipeline.
-
-Nothing on these pages is saved. Forms validate in the browser and then open the dashboard preview.
+A Pakistan-localized hiring workspace for HR teams. The Django frontend renders the landing page, account screens, and HR dashboard with sample data. PostgreSQL now holds the hiring schema for the next phase. The screens do not read or write that database yet.
 
 ## What is finished
 
@@ -14,7 +12,8 @@ Nothing on these pages is saved. Forms validate in the browser and then open the
 | Pakistan-specific sample data | Done |
 | Visual system (type, color, layout, motion) | Done |
 | Local run setup, secret-file ignore rules, and `.env` loading | Done |
-| Database, real accounts, job-board posting, and AI calls | Not started |
+| PostgreSQL schema (`autohr_n`, 17 tables) | Done, not wired to the frontend |
+| Real accounts, job-board posting, and AI calls | Not started |
 
 ## Pages
 
@@ -75,14 +74,17 @@ The set is written for a Pakistani HR audience:
 - Job boards called out as Rozee.pk and Indeed Pakistan
 - The app time zone is `Asia/Karachi`
 
-The landing page describes a future stack (PostgreSQL, LLM job-description drafting, Whisper interview transcription). Those services are **not** connected in this repository.
+The landing page also describes LLM job-description drafting and Whisper interview transcription. Those services are not connected.
 
 ## Project layout
 
 ```text
 AutoHR-N/
 ├── README.md
+├── db_architecture.md       # every table, column, and relationship
 ├── .gitignore
+├── db/
+│   └── schema.sql           # the script already applied to PostgreSQL
 └── Frontend/
     ├── manage.py
     ├── requirements.txt
@@ -95,7 +97,7 @@ AutoHR-N/
         └── js/              # main.js, dashboard.js
 ```
 
-`portal` is the only installed app. Django static files are enabled. There is no database configuration (`DATABASES` is empty) and no admin site.
+`portal` is the only installed app. Django static files are enabled. `DATABASES` in Django settings is still empty, so the site does not open PostgreSQL.
 
 ## Run it locally
 
@@ -135,6 +137,26 @@ python manage.py runserver
 
 Stylesheets and scripts are linked with a file-modification version, and development responses send `Cache-Control: no-store`. After a CSS change, reload the page. If Chrome still shows an older header, press **Ctrl+Shift+R** once.
 
+## Database
+
+PostgreSQL 18 is already created on this machine. You do not need to run `schema.sql` again.
+
+| Item | Value |
+| --- | --- |
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `autohr_n` |
+| Login | `autohr` |
+| Password | `Frontend/.env` (`POSTGRES_PASSWORD`) |
+| Schema script | `db/schema.sql` |
+| Table guide | `db_architecture.md` |
+
+The login `autohr` can change the schema (add or alter columns). The password is only in `Frontend/.env`, which git ignores.
+
+The database has 17 empty tables for the hiring pipeline: companies, HR users, jobs, board posts, candidates, applications, parsed CVs, CV scores, invitations, schedules, consent, interviews, the three stages, question scores, rankings, and email notifications. Full columns and relationships are in `db_architecture.md`.
+
+`Frontend/.env.example` lists the variable names without the real password.
+
 ## Secrets
 
 `.gitignore` keeps local secrets out of git:
@@ -156,7 +178,7 @@ copy .env.example .env
 DJANGO_SECRET_KEY=your-long-random-string
 ```
 
-`Frontend/autohr_frontend/settings.py` reads `Frontend/.env` without overriding variables already set in the shell. If `DJANGO_SECRET_KEY` is missing, the app uses a labeled demo key so `runserver` still starts. Do not put a production key in `settings.py`.
+`Frontend/autohr_frontend/settings.py` reads `Frontend/.env` without overriding variables already set in the shell. If `DJANGO_SECRET_KEY` is missing, the app uses a labeled demo key so `runserver` still starts. Do not put a production key in `settings.py`. Django does not use `POSTGRES_PASSWORD` yet.
 
 ## Front-end notes
 
@@ -169,3 +191,9 @@ DJANGO_SECRET_KEY=your-long-random-string
 - Dashboard layout is in `static/css/dashboard.css`
 
 The header actions (New Job, notifications, and the HR chip) stay on one row. Dashboard sections are buttons, not separate URLs, so the address stays `/dashboard/` while you move around the workspace.
+
+## Not connected yet
+
+The frontend is not connected to PostgreSQL. Landing, sign-in, registration, and the dashboard still render the sample data in `Frontend/portal/data.py`. Nothing typed into those forms is saved in `autohr_n`.
+
+`db/schema.sql` and `db_architecture.md` are the current architecture, not a frozen contract. Tables and columns can be added or changed later when a screen needs a field that is not there yet. Wiring Django to this database is a later step.
