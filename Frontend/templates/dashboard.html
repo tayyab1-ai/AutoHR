@@ -1,0 +1,549 @@
+{% extends "base.html" %}
+{% load asset_version %}
+{% block title %}Dashboard — AutoHR{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static_v 'css/dashboard.css' %}">{% endblock %}
+
+{% block content %}
+<div class="dashboard-root">
+
+  <!-- ======================= SIDEBAR ======================= -->
+  <aside class="db-sidebar">
+    <div class="db-sidebar-header">
+      <a href="{% url 'landing' %}" class="db-logo-badge text-decoration-none">
+        <span class="db-logo-dot"></span><span class="db-hide-on-collapse">AutoHR</span>
+      </a>
+      <button class="btn p-1 d-lg-none" data-sidebar-mobile-toggle aria-label="Close menu"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <nav class="db-nav">
+      <button type="button" class="db-nav-item is-active" data-panel-target="overview" data-panel-title="Dashboard" data-panel-subtitle="Here's what's happening across your recruitment pipeline today.">
+        <span class="db-nav-icon"><i class="bi bi-grid-1x2-fill"></i></span><span class="db-hide-on-collapse">Dashboard</span>
+      </button>
+      <button type="button" class="db-nav-item" data-panel-target="jobs" data-panel-title="Jobs" data-panel-subtitle="Every role posted across Rozee.pk, Indeed Pakistan, and LinkedIn.">
+        <span class="db-nav-icon"><i class="bi bi-briefcase-fill"></i></span><span class="db-hide-on-collapse">Jobs</span>
+      </button>
+      <button type="button" class="db-nav-item" data-panel-target="create-job" data-panel-title="Create Job" data-panel-subtitle="Step 1 of the pipeline — tell AutoHR about the role you're hiring for.">
+        <span class="db-nav-icon"><i class="bi bi-plus-circle-fill"></i></span><span class="db-hide-on-collapse">Create Job</span>
+      </button>
+      <button type="button" class="db-nav-item" data-panel-target="applications" data-panel-title="Applications" data-panel-subtitle="AI-screened candidates ranked by fit against job requirements.">
+        <span class="db-nav-icon"><i class="bi bi-people-fill"></i></span><span class="db-hide-on-collapse">Applications</span><span class="db-nav-badge db-hide-on-collapse">847</span>
+      </button>
+      <button type="button" class="db-nav-item" data-panel-target="pipeline" data-panel-title="Pipeline" data-panel-subtitle="Every candidate's current stage, from applied to decided.">
+        <span class="db-nav-icon"><i class="bi bi-kanban-fill"></i></span><span class="db-hide-on-collapse">Pipeline</span>
+      </button>
+      <button type="button" class="db-nav-item" data-panel-target="interviews" data-panel-title="Interviews" data-panel-subtitle="3-stage AI video interviews, scheduled and completed.">
+        <span class="db-nav-icon"><i class="bi bi-camera-video-fill"></i></span><span class="db-hide-on-collapse">Interviews</span>
+      </button>
+      <button type="button" class="db-nav-item" data-panel-target="reports" data-panel-title="Reports" data-panel-subtitle="Hiring funnel performance over the last 6 months.">
+        <span class="db-nav-icon"><i class="bi bi-bar-chart-fill"></i></span><span class="db-hide-on-collapse">Reports</span>
+      </button>
+      <button type="button" class="db-nav-item" data-panel-target="account" data-panel-title="Account" data-panel-subtitle="The HR profile stored for the signed-in account.">
+        <span class="db-nav-icon"><i class="bi bi-person-circle"></i></span><span class="db-hide-on-collapse">Account</span>
+      </button>
+    </nav>
+
+    <div class="db-automation-box db-hide-on-collapse">
+      <div class="db-auto-header"><i class="bi bi-lightning-charge-fill"></i> Automation Active</div>
+      <div class="db-auto-sub">24 workflows running across Rozee.pk &amp; Indeed PK</div>
+    </div>
+
+    <div class="db-sidebar-footer">
+      <button class="btn-sidebar-toggle" data-sidebar-collapse>
+        <i class="bi bi-layout-sidebar-inset"></i><span class="db-hide-on-collapse">Collapse</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ======================= MAIN WORKSPACE ======================= -->
+  <div class="db-main-wrap">
+    <header class="db-topbar">
+      <button class="btn p-1 d-lg-none" data-sidebar-mobile-toggle aria-label="Open menu"><i class="bi bi-list" style="font-size:22px;"></i></button>
+
+      <div class="db-search-bar d-none d-md-block">
+        <i class="bi bi-search db-search-icon"></i>
+        <input type="text" class="db-search-input" placeholder="Search candidates, jobs, requisitions...">
+      </div>
+
+      <div class="db-topbar-actions ms-auto">
+        <button type="button" class="btn-db-primary" data-go-panel="create-job"><i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">New Job</span></button>
+        <button type="button" class="db-icon-btn" data-bs-toggle="tooltip" title="3 unread notifications"><i class="bi bi-bell-fill"></i><span class="db-notif-pulse"></span></button>
+        <button type="button" class="db-user-chip" data-go-panel="account">
+          <span class="db-avatar">{{ hr.initials }}</span>
+          <span class="d-none d-sm-block">
+            <span class="db-user-name d-block">{{ hr.full_name }}</span>
+            <span class="db-user-role d-block">{{ hr.job_title }}</span>
+          </span>
+        </button>
+      </div>
+    </header>
+
+    <main class="db-main-content">
+
+      <div class="db-page-header">
+        <h1 class="db-title" data-page-title>Dashboard</h1>
+        <p class="db-subtitle" data-page-subtitle>Here's what's happening across your recruitment pipeline today.</p>
+      </div>
+
+      <!-- ================= PANEL: OVERVIEW ================= -->
+      <div class="db-panel is-active" data-panel="overview">
+        <div class="row g-3 mb-1">
+          {% for kpi in kpis %}
+          <div class="col-12 col-sm-6 col-lg-3" data-aos="fade-up" data-aos-delay="{{ forloop.counter0|add:'0' }}00">
+            <div class="db-kpi-card">
+              <div class="db-kpi-card-top">
+                <div>
+                  <div class="db-kpi-label">{{ kpi.label }}</div>
+                  <div class="db-kpi-value">{{ kpi.value }}</div>
+                  <div class="db-kpi-trend"><i class="bi bi-arrow-up-short"></i>{{ kpi.trend }}</div>
+                </div>
+                <div class="db-kpi-icon-wrap {{ kpi.tone }}">
+                  <i class="bi {{ kpi.icon }}"></i>
+                </div>
+              </div>
+              <button type="button" class="btn btn-link p-0 text-decoration-none small text-muted" data-bs-toggle="tooltip" title="{{ kpi.hint }}">
+                <i class="bi bi-info-circle"></i> What's this?
+              </button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-lg-7">
+            <div class="db-card h-100">
+              <div class="db-card-header">
+                <h2 class="db-card-title"><i class="bi bi-funnel-fill text-warning"></i> Hiring Pipeline (Phase 1&ndash;4)</h2>
+                <button class="btn-db-secondary" data-go-panel="pipeline">View full pipeline <i class="bi bi-arrow-right"></i></button>
+              </div>
+              <div class="db-card-body">
+                <div class="d-flex flex-column gap-3">
+                  {% for stage in funnel %}
+                  <div class="db-funnel-row">
+                    <span class="fw-semibold">{{ stage.stage }}</span>
+                    <div class="db-funnel-bar-bg">
+                      <div class="db-funnel-fill {{ stage.css }}" data-pct="{{ stage.pct }}" style="width:0%;">{{ stage.count }}</div>
+                    </div>
+                    <span class="text-muted text-end">{{ stage.pct }}%</span>
+                  </div>
+                  {% endfor %}
+                </div>
+
+                <hr class="my-4" style="border-color:var(--border-subtle);">
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h3 class="h6 mb-0">Applications Over 6 Months (Rozee.pk + Indeed PK)</h3>
+                </div>
+                <div class="db-chart-container">
+                  {% for value in chart_values %}
+                  <div class="db-chart-bar" data-height="0" data-bs-toggle="tooltip" title="{{ value }} applications" style="height:0%;" data-final-height="{% widthratio value chart_max 100 %}"></div>
+                  {% endfor %}
+                </div>
+                <div class="db-chart-dates">
+                  {% for month in chart_months %}<span>{{ month }}</span>{% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-5">
+            <div class="db-card h-100">
+              <div class="db-card-header">
+                <h2 class="db-card-title"><i class="bi bi-activity text-success"></i> Recent Activity</h2>
+              </div>
+              <div class="db-card-body">
+                <div class="d-flex flex-column gap-3">
+                  {% for item in activity %}
+                  <div class="db-activity-item">
+                    <span class="db-activity-icon {{ item.tone }}"><i class="bi {{ item.icon }}"></i></span>
+                    <div>
+                      <div class="db-activity-desc">{{ item.text|safe }}</div>
+                      <div class="db-activity-time">{{ item.meta }}</div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PANEL: JOBS ================= -->
+      <div class="db-panel" data-panel="jobs">
+        <div class="db-toolbar">
+          <input type="text" class="db-input" placeholder="Search jobs..." style="min-width:220px;">
+          <select class="db-select"><option>All Statuses</option><option>Live</option><option>Draft</option><option>Closed</option></select>
+          <select class="db-select"><option>All Cities</option><option>Lahore</option><option>Karachi</option><option>Islamabad</option><option>Rawalpindi</option></select>
+          <button class="btn-db-primary ms-auto" data-go-panel="create-job"><i class="bi bi-plus-lg"></i> New Job</button>
+        </div>
+
+        <div class="db-card">
+          <div class="db-table-wrapper">
+            <table class="db-table">
+              <thead><tr><th>Role</th><th>Boards</th><th>Salary (PKR/month)</th><th>Hires</th><th>Applicants</th><th>Status</th><th>Posted</th></tr></thead>
+              <tbody>
+                {% for job in jobs %}
+                <tr>
+                  <td>
+                    <div class="db-job-cell">
+                      <span class="db-job-icon"><i class="bi bi-briefcase-fill"></i></span>
+                      <div><div class="db-job-title">{{ job.title }}</div><div class="db-job-sub">{{ job.department }} &middot; {{ job.city }}</div></div>
+                    </div>
+                  </td>
+                  <td>{% for board in job.boards %}<span class="db-tag-board {% if board == 'Rozee.pk' %}rozee{% endif %}">{{ board }}</span>{% endfor %}</td>
+                  <td>{{ job.salary|cut:" / month" }}</td>
+                  <td>{{ job.hires }}</td>
+                  <td>{{ job.applicants }}</td>
+                  <td>
+                    {% if job.status == 'live' %}<span class="db-badge db-badge-live"><i class="bi bi-dot"></i> Live</span>
+                    {% elif job.status == 'draft' %}<span class="db-badge db-badge-draft"><i class="bi bi-dot"></i> Draft</span>
+                    {% else %}<span class="db-badge db-badge-closed"><i class="bi bi-dot"></i> Closed</span>{% endif %}
+                  </td>
+                  <td class="text-muted">{{ job.posted }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="db-pagination">
+            <span>Showing 1 to {{ jobs|length }} of {{ jobs|length }} jobs</span>
+            <div class="d-flex gap-1"><button class="db-page-btn is-active">1</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PANEL: CREATE JOB ================= -->
+      <div class="db-panel" data-panel="create-job">
+        <div class="db-stepper">
+          <div class="db-step-item is-active"><span class="db-step-num">1</span><span>Job Details</span></div>
+          <div class="db-step-separator"></div>
+          <div class="db-step-item"><span class="db-step-num">2</span><span>AI Job Description</span></div>
+          <div class="db-step-separator"></div>
+          <div class="db-step-item"><span class="db-step-num">3</span><span>Publish to Boards</span></div>
+        </div>
+
+        <div class="row g-4" data-create-job-fields>
+          <div class="col-12 col-lg-7">
+            <div class="db-card">
+              <div class="db-card-header"><h2 class="db-card-title"><i class="bi bi-pencil-square text-warning"></i> Role Details</h2></div>
+              <div class="db-card-body">
+                <form class="needs-validation" novalidate data-create-job-form>
+                  <div class="db-field">
+                    <label class="db-field-label" for="job_title">Role title <span class="db-required">Required</span></label>
+                    <input type="text" class="db-input" id="job_title" style="width:100%;" required minlength="2" placeholder="Senior Full Stack Engineer" value="Senior Full Stack Engineer">
+                  </div>
+
+                  <div class="row g-3">
+                    <div class="col-6">
+                      <div class="db-field">
+                        <label class="db-field-label" for="min_experience">Min. experience (years) <span class="db-required">Required</span></label>
+                        <input type="number" class="db-input" id="min_experience" style="width:100%;" min="0" max="60" required value="4">
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="db-field">
+                        <label class="db-field-label" for="max_experience">Max. experience (years) <span class="db-optional">Optional</span></label>
+                        <input type="number" class="db-input" id="max_experience" style="width:100%;" min="0" max="60" value="8">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row g-3">
+                    <div class="col-6">
+                      <div class="db-field">
+                        <label class="db-field-label" for="min_salary">Min. salary (PKR / month) <span class="db-optional">Optional</span></label>
+                        <input type="number" class="db-input" id="min_salary" style="width:100%;" min="0" step="1000" value="250000">
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="db-field">
+                        <label class="db-field-label" for="max_salary">Max. salary (PKR / month) <span class="db-optional">Optional</span></label>
+                        <input type="number" class="db-input" id="max_salary" style="width:100%;" min="0" step="1000" value="400000">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row g-3">
+                    <div class="col-6">
+                      <div class="db-field">
+                        <label class="db-field-label" for="job_city">City <span class="db-required">Required</span></label>
+                        <select class="db-select" id="job_city" style="width:100%;" required>
+                          <option value="">Select a city</option>
+                          <option selected>Lahore</option><option>Karachi</option><option>Islamabad</option><option>Rawalpindi</option><option>Faisalabad</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="db-field">
+                        <label class="db-field-label" for="target_hires">Number of hires <span class="db-required">Required</span></label>
+                        <input type="number" class="db-input" id="target_hires" style="width:100%;" min="1" max="500" required value="2">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="db-field">
+                    <label class="db-field-label">Required skills <span class="db-optional">Optional</span></label>
+                    <p class="db-field-hint">Press Enter after each skill.</p>
+                    <div class="db-skill-list" id="required-skill-list">
+                      <span class="db-skill-chip"><span>React</span><button type="button" aria-label="Remove">&times;</button></span>
+                      <span class="db-skill-chip"><span>Node.js</span><button type="button" aria-label="Remove">&times;</button></span>
+                    </div>
+                    <input type="text" class="db-input" id="required-skill-input" style="width:100%;" placeholder="Type a skill and press Enter">
+                    <input type="hidden" id="required_skills_hidden" value="React, Node.js">
+                  </div>
+
+                  <div class="db-field">
+                    <label class="db-field-label">Bonus skills <span class="db-optional">Optional</span></label>
+                    <div class="db-skill-list" id="bonus-skill-list">
+                      <span class="db-skill-chip"><span>AWS</span><button type="button" aria-label="Remove">&times;</button></span>
+                    </div>
+                    <input type="text" class="db-input" id="bonus-skill-input" style="width:100%;" placeholder="Type a skill and press Enter">
+                    <input type="hidden" id="bonus_skills_hidden" value="AWS">
+                  </div>
+
+                  <button type="submit" class="btn-db-primary w-100 justify-content-center py-2"><i class="bi bi-check2-circle"></i> Create Job &amp; Generate AI Description</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-5">
+            <div class="db-card">
+              <div class="db-card-header"><h2 class="db-card-title"><i class="bi bi-eye-fill text-muted"></i> Live Preview</h2></div>
+              <div class="db-card-body">
+                <div class="db-preview-card">
+                  <div class="db-preview-title-row">
+                    <strong data-preview-title>Senior Full Stack Engineer</strong>
+                    <span class="db-badge db-badge-draft">Draft</span>
+                  </div>
+                  <div class="db-preview-list">
+                    <dl>
+                      <div class="pv-row"><dt>Experience</dt><dd data-preview-exp>4 – 8 years</dd></div>
+                      <div class="pv-row"><dt>Salary</dt><dd data-preview-salary>PKR 250,000 – 400,000 / month</dd></div>
+                      <div class="pv-row"><dt>City</dt><dd data-preview-city>Lahore</dd></div>
+                      <div class="pv-row"><dt>Hires needed</dt><dd data-preview-hires>2</dd></div>
+                      <div class="pv-row"><dt>Boards</dt><dd>Rozee.pk, Indeed Pakistan</dd></div>
+                    </dl>
+                  </div>
+                </div>
+                <div class="db-preview-note"><i class="bi bi-info-circle"></i> AutoHR will draft a job description from these details once you create the job. You will review and approve it before it is published.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4 d-none" data-create-job-result>
+          <div class="col-12 col-lg-7">
+            <div class="db-card">
+              <div class="db-card-body db-save-result">
+                <div class="db-save-mark"><i class="bi bi-check-lg"></i></div>
+                <h3>Job saved as draft</h3>
+                <p>AutoHR is ready to generate a job description for HR review before it posts to Rozee.pk and Indeed Pakistan.</p>
+                <button type="button" class="btn-db-primary" data-go-panel="jobs">Go to Jobs <i class="bi bi-arrow-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PANEL: APPLICATIONS ================= -->
+      <div class="db-panel" data-panel="applications">
+        <div class="db-split-grid">
+          <div class="db-card db-candidate-list-pane">
+            <div class="db-card-header"><h2 class="db-card-title">Candidates <span class="text-muted fw-normal small">({{ candidates|length }})</span></h2></div>
+            {% for c in candidates %}
+            <div class="db-candidate-card {% if forloop.first %}is-selected{% endif %}" data-candidate-card="{{ c.id }}">
+              <span class="avatar-circle" style="width:38px;height:38px;font-size:13px;">{{ c.initials }}</span>
+              <div class="flex-grow-1">
+                <div class="d-flex justify-content-between">
+                  <span class="fw-semibold" style="font-size:13.5px;">{{ c.name }}</span>
+                  <span class="fw-bold" style="font-size:13px; color:#059669;">{{ c.score }}%</span>
+                </div>
+                <div class="text-muted" style="font-size:11.5px;">{{ c.role }} &middot; {{ c.city }}</div>
+                <div class="db-score-bar-bg"><div class="db-score-bar-fill" data-score="0" data-final-score="{{ c.score }}" style="width:0%;"></div></div>
+                <div class="text-muted mt-1" style="font-size:11px;">{{ c.applied }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="db-card">
+            {% for c in candidates %}
+            <div class="{% if not forloop.first %}d-none{% endif %}" data-candidate-detail="{{ c.id }}">
+              <div class="db-card-header">
+                <div class="d-flex align-items-center gap-3">
+                  <span class="avatar-circle" style="width:48px;height:48px;font-size:16px;">{{ c.initials }}</span>
+                  <div>
+                    <h2 class="db-card-title mb-0">{{ c.name }}</h2>
+                    <div class="text-muted small">{{ c.role }} &middot; {{ c.city }}, Pakistan</div>
+                  </div>
+                </div>
+                {% if c.status == 'shortlisted' %}<span class="db-badge db-badge-shortlisted">Shortlisted</span>
+                {% elif c.status == 'interviewing' %}<span class="db-badge db-badge-interviewing">Interviewing</span>
+                {% else %}<span class="db-badge db-badge-rejected">Not Progressing</span>{% endif %}
+              </div>
+              <div class="db-card-body">
+                <div class="db-tab-bar" data-tab-group="cand-{{ c.id }}">
+                  <button type="button" class="db-tab-btn is-active" data-tab-btn="overview">Overview</button>
+                  <button type="button" class="db-tab-btn" data-tab-btn="breakdown">Score Breakdown</button>
+                </div>
+
+                <div class="db-tab-panel is-active" data-tab-panel="overview" data-tab-panel-group="cand-{{ c.id }}">
+                  <p class="small text-muted mb-1 fw-semibold">Experience</p>
+                  <p class="small mb-3">{{ c.experience }}</p>
+                  <p class="small text-muted mb-1 fw-semibold">Education</p>
+                  <p class="small mb-3">{{ c.education }}</p>
+                  <p class="small text-muted mb-1 fw-semibold">Skills</p>
+                  <div class="db-skill-list mb-0">{% for skill in c.skills %}<span class="db-skill-chip"><span>{{ skill }}</span></span>{% endfor %}</div>
+                  <div class="db-insight-box"><i class="bi bi-stars text-warning"></i> <strong>AI Insight:</strong> {{ c.insight }}</div>
+                </div>
+
+                <div class="db-tab-panel" data-tab-panel="breakdown" data-tab-panel-group="cand-{{ c.id }}">
+                  <div class="row text-center mb-3">
+                    <div class="col-4">
+                      <div class="db-score-ring">{{ c.score }}%</div>
+                      <div class="small text-muted">Overall Match</div>
+                    </div>
+                    <div class="col-8 text-start">
+                      <div class="mb-2"><div class="d-flex justify-content-between small mb-1"><span>Skills Match</span><span>{{ c.skills_score }}%</span></div><div class="db-score-bar-bg"><div class="db-score-bar-fill" style="width:{{ c.skills_score }}%;"></div></div></div>
+                      <div><div class="d-flex justify-content-between small mb-1"><span>Experience Relevance</span><span>{{ c.exp_score }}%</span></div><div class="db-score-bar-bg"><div class="db-score-bar-fill" style="width:{{ c.exp_score }}%;"></div></div></div>
+                    </div>
+                  </div>
+                  <div class="db-insight-box">Scored automatically by the AI CV screening agent against this role's required and bonus skills.</div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PANEL: PIPELINE ================= -->
+      <div class="db-panel" data-panel="pipeline">
+        <div class="row g-3">
+          {% for col in kanban %}
+          <div class="col-12 col-md-6 col-lg-3">
+            <div class="db-kanban-col">
+              <div class="db-kanban-col-head"><span class="db-kanban-col-title">{{ col.title }}</span><span class="db-nav-badge">{{ col.count }}</span></div>
+              {% for card in col.candidates %}
+              <div class="db-kanban-card">
+                <div class="d-flex justify-content-between">
+                  <span class="fw-semibold" style="font-size:13px;">{{ card.name }}</span>
+                  <span style="font-size:12px; color:#059669; font-weight:700;">{{ card.score }}%</span>
+                </div>
+                <div class="text-muted" style="font-size:11.5px;">{{ card.role }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- ================= PANEL: INTERVIEWS ================= -->
+      <div class="db-panel" data-panel="interviews">
+        <div class="db-card">
+          <div class="db-table-wrapper">
+            <table class="db-table">
+              <thead><tr><th>Candidate</th><th>Role</th><th>Stage</th><th>Date</th><th>Time (PKT)</th><th>Status</th></tr></thead>
+              <tbody>
+                {% for iv in interviews %}
+                <tr>
+                  <td class="fw-semibold">{{ iv.candidate }}</td>
+                  <td>{{ iv.role }}</td>
+                  <td>{{ iv.stage }}</td>
+                  <td>{{ iv.date }}</td>
+                  <td>{{ iv.time }}</td>
+                  <td>{% if iv.status == 'scheduled' %}<span class="db-badge db-badge-scheduled">Scheduled</span>{% else %}<span class="db-badge db-badge-completed">Completed</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PANEL: REPORTS ================= -->
+      <div class="db-panel" data-panel="reports">
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-lg-3"><div class="db-card"><div class="db-report-stat"><div class="rv">{{ reports.time_to_hire }}</div><div class="rl">Avg. Time-to-Hire</div></div></div></div>
+          <div class="col-6 col-lg-3"><div class="db-card"><div class="db-report-stat"><div class="rv">{{ reports.cost_per_hire }}</div><div class="rl">Cost per Hire</div></div></div></div>
+          <div class="col-6 col-lg-3"><div class="db-card"><div class="db-report-stat"><div class="rv">{{ reports.offer_acceptance }}</div><div class="rl">Offer Acceptance</div></div></div></div>
+          <div class="col-6 col-lg-3"><div class="db-card"><div class="db-report-stat"><div class="rv" style="font-size:1rem;">{{ reports.top_source }}</div><div class="rl">Top Source</div></div></div></div>
+        </div>
+
+        <div class="db-card">
+          <div class="db-card-header"><h2 class="db-card-title">Applications Over 6 Months</h2></div>
+          <div class="db-card-body">
+            <div class="db-chart-container">
+              {% for value in chart_values %}
+              <div class="db-chart-bar" data-height="0" style="height:0%;" data-final-height="{% widthratio value chart_max 100 %}"></div>
+              {% endfor %}
+            </div>
+            <div class="db-chart-dates">{% for month in chart_months %}<span>{{ month }}</span>{% endfor %}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PANEL: ACCOUNT ================= -->
+      <div class="db-panel" data-panel="account">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="avatar-circle" style="width:56px;height:56px;font-size:18px;">{{ hr.initials }}</span>
+            <div>
+              <h2 class="h4 mb-0">{{ hr.full_name }}</h2>
+              <div class="text-muted small">{{ hr.job_title }} at {{ hr.company_name }} &middot; {{ hr.city }}, {{ hr.country }}</div>
+            </div>
+          </div>
+          <a href="{% url 'login' %}" class="btn-db-secondary"><i class="bi bi-box-arrow-right"></i> Sign out</a>
+        </div>
+
+        <div class="db-card">
+          <div class="db-card-header"><h2 class="db-card-title">Signed-in HR Account</h2></div>
+          <div class="db-card-body">
+            <div class="db-preview-list">
+              <dl>
+                <div class="pv-row"><dt>Full name</dt><dd>{{ hr.full_name }}</dd></div>
+                <div class="pv-row"><dt>Work email</dt><dd>{{ hr.email }}</dd></div>
+                <div class="pv-row"><dt>Job title</dt><dd>{{ hr.job_title }}</dd></div>
+                <div class="pv-row"><dt>Phone</dt><dd>{{ hr.phone }}</dd></div>
+                <div class="pv-row"><dt>Company</dt><dd>{{ hr.company_name }}</dd></div>
+                <div class="pv-row"><dt>Website</dt><dd>{{ hr.company_website }}</dd></div>
+                <div class="pv-row"><dt>Industry</dt><dd>{{ hr.industry }}</dd></div>
+                <div class="pv-row"><dt>Company size</dt><dd>{{ hr.company_size }} employees</dd></div>
+                <div class="pv-row"><dt>Country</dt><dd>{{ hr.country }}</dd></div>
+                <div class="pv-row"><dt>City</dt><dd>{{ hr.city }}</dd></div>
+                <div class="pv-row"><dt>Office address</dt><dd>{{ hr.office_address }}</dd></div>
+                <div class="pv-row"><dt>LinkedIn profile</dt><dd>{{ hr.linkedin_profile_url }}</dd></div>
+                <div class="pv-row"><dt>LinkedIn email</dt><dd>{{ hr.linkedin_email }}</dd></div>
+                <div class="pv-row"><dt>LinkedIn password</dt><dd><i class="bi bi-shield-lock-fill text-success"></i> Saved and encrypted</dd></div>
+                <div class="pv-row"><dt>Indeed email</dt><dd>{{ hr.indeed_email }}</dd></div>
+                <div class="pv-row"><dt>Indeed password</dt><dd><i class="bi bi-shield-lock-fill text-success"></i> Saved and encrypted</dd></div>
+                <div class="pv-row"><dt>Rozee.pk email</dt><dd>{{ hr.rozee_email }}</dd></div>
+                <div class="pv-row"><dt>Rozee.pk password</dt><dd><i class="bi bi-shield-lock-fill text-success"></i> Saved and encrypted</dd></div>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static_v 'js/dashboard.js' %}"></script>
+<script>
+  // Resolve the chart bars' final height (computed server-side via widthratio)
+  // after dashboard.js wires up the panel-activation animation.
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".db-chart-bar[data-final-height]").forEach(function (bar) {
+      bar.setAttribute("data-height", bar.getAttribute("data-final-height"));
+    });
+    document.querySelectorAll(".db-score-bar-fill[data-final-score]").forEach(function (bar) {
+      bar.setAttribute("data-score", bar.getAttribute("data-final-score"));
+    });
+  });
+</script>
+{% endblock %}

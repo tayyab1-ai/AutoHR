@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{% if is_signup %}Create an HR Account{% else %}Sign In{% endif %} — AutoHR{% endblock %}
+
+{% block content %}
+<div class="auth-page-wrap">
+  <div class="auth-card" data-auth-card>
+
+    <div class="form-section">
+      <div class="brand-row">
+        <a href="{% url 'landing' %}" class="brand-pill text-decoration-none">
+          <span class="brand-dot"></span><span>AutoHR</span>
+        </a>
+        <a href="{% url 'dashboard' %}" class="brand-pill text-decoration-none" style="background:rgba(245,190,66,0.18); color:#b45309; border-color:rgba(245,190,66,0.35);">
+          <span>View Dashboard Demo</span><i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+
+      <!-- ======================= CREATE ACCOUNT PANEL ======================= -->
+      <div data-auth-panel="signup" class="{% if not is_signup %}d-none{% endif %}">
+        <div class="auth-header">
+          <h1 class="auth-title">Create an HR account</h1>
+          <p class="auth-subtitle">Register with your work email. This same email is used to sign in.</p>
+        </div>
+
+        <form class="auth-form needs-validation" novalidate data-demo-auth-form data-success-message="Account created. Opening your HR portal...">
+          <div class="alert alert-success py-2 px-3 small d-none" data-form-banner role="alert"></div>
+
+          <p class="auth-section-label">HR Profile</p>
+
+          <div class="form-group">
+            <label class="form-label-custom" for="su_full_name">
+              <span>Full name</span>
+              <button type="button" class="info-tip" data-bs-toggle="tooltip" title="The name of the person who will manage hiring in AutoHR.">i</button>
+              <span class="req-mark">Required</span>
+            </label>
+            <input type="text" class="form-control form-control-pill" id="su_full_name" placeholder="Ayesha Khan" required value="Ayesha Khan">
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_job_title">
+                  <span>Job title</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="Your role at the company, such as HR Manager or Talent Acquisition Lead.">i</button>
+                  <span class="req-mark">Required</span>
+                </label>
+                <input type="text" class="form-control form-control-pill" id="su_job_title" placeholder="HR Manager" required value="HR Manager">
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_phone">
+                  <span>Work phone</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="A phone number where candidates or colleagues can reach this HR account, with the country code.">i</button>
+                  <span class="req-mark">Required</span>
+                </label>
+                <input type="tel" class="form-control form-control-pill" id="su_phone" placeholder="+92 300 1234567" pattern="^\+?[0-9][0-9\s\-()]{6,22}$" required value="+92 300 1234567">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label-custom" for="su_email">
+              <span>Work email</span>
+              <button type="button" class="info-tip" data-bs-toggle="tooltip" title="This is the only sign-in method. An email that is already registered cannot be used again.">i</button>
+              <span class="req-mark">Required</span>
+            </label>
+            <input type="email" class="form-control form-control-pill" id="su_email" placeholder="hr@company.pk" required value="ayesha.khan@northbridge.pk">
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_password">
+                  <span>Password</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="At least 8 characters with one letter and one number. Used only for AutoHR.">i</button>
+                  <span class="req-mark">Required</span>
+                </label>
+                <div class="position-relative">
+                  <input type="password" class="form-control form-control-pill" id="su_password" minlength="8" placeholder="Create a password" required>
+                  <button type="button" class="input-icon-btn" data-toggle-password="su_password"><i class="bi bi-eye"></i></button>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_confirm">
+                  <span>Confirm password</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="Type the password again so a typo is not saved.">i</button>
+                  <span class="req-mark">Required</span>
+                </label>
+                <input type="password" class="form-control form-control-pill" id="su_confirm" minlength="8" placeholder="Repeat the password" required>
+              </div>
+            </div>
+          </div>
+
+          <p class="auth-section-label">Company</p>
+
+          <div class="form-group">
+            <label class="form-label-custom" for="su_company">
+              <span>Company name</span>
+              <button type="button" class="info-tip" data-bs-toggle="tooltip" title="Legal or trading name of the company this HR account hires for.">i</button>
+              <span class="req-mark">Required</span>
+            </label>
+            <input type="text" class="form-control form-control-pill" id="su_company" placeholder="Northbridge Technologies" required value="Northbridge Technologies">
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_website">
+                  <span>Company website</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="Public website including https://. Leave blank if the company has no site yet.">i</button>
+                  <span class="opt-mark">Optional</span>
+                </label>
+                <input type="url" class="form-control form-control-pill" id="su_website" placeholder="https://company.pk" value="https://northbridge.pk">
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_industry">
+                  <span>Industry</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="The sector you hire in, such as Software, Textiles, or Banking.">i</button>
+                  <span class="opt-mark">Optional</span>
+                </label>
+                <input type="text" class="form-control form-control-pill" id="su_industry" placeholder="Software &amp; IT Services" value="Software &amp; IT Services">
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_size">
+                  <span>Company size</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="Approximate number of employees. Used only as company context.">i</button>
+                  <span class="opt-mark">Optional</span>
+                </label>
+                <select class="form-select form-select-pill" id="su_size">
+                  <option value="">Select a range</option>
+                  <option>1-10</option>
+                  <option selected>51-200</option>
+                  <option>201-500</option>
+                  <option>501-1000</option>
+                  <option>1000+</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_country">
+                  <span>Country</span>
+                  <span class="req-mark">Required</span>
+                </label>
+                <input type="text" class="form-control form-control-pill" id="su_country" required value="Pakistan">
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_city">
+                  <span>City</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="City of the office that owns this HR account.">i</button>
+                  <span class="req-mark">Required</span>
+                </label>
+                <select class="form-select form-select-pill" id="su_city" required>
+                  <option value="">Select a city</option>
+                  <option selected>Lahore</option>
+                  <option>Karachi</option>
+                  <option>Islamabad</option>
+                  <option>Rawalpindi</option>
+                  <option>Faisalabad</option>
+                  <option>Multan</option>
+                  <option>Peshawar</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_address">
+                  <span>Office address</span>
+                  <span class="opt-mark">Optional</span>
+                </label>
+                <input type="text" class="form-control form-control-pill" id="su_address" placeholder="3rd Floor, Liberty Tower, Gulberg III" value="3rd Floor, Liberty Tower, Gulberg III">
+              </div>
+            </div>
+          </div>
+
+          <p class="auth-section-label">Accounts Already Created</p>
+
+          <div class="form-group">
+            <label class="form-label-custom" for="su_li_url">
+              <span>LinkedIn profile link</span>
+              <span class="opt-mark">Optional</span>
+            </label>
+            <input type="url" class="form-control form-control-pill" id="su_li_url" placeholder="https://www.linkedin.com/company/your-company">
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_li_email">
+                  <span>LinkedIn email</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="Email that already signs in to LinkedIn for this company.">i</button>
+                  <span class="req-mark">Required</span>
+                </label>
+                <input type="email" class="form-control form-control-pill" id="su_li_email" required placeholder="careers.linkedin@company.pk">
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_li_password">
+                  <span>LinkedIn password</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="Password for that existing LinkedIn account. It is encrypted before it is stored.">i</button>
+                  <span class="req-mark">Required</span>
+                </label>
+                <input type="password" class="form-control form-control-pill" id="su_li_password" minlength="6" required placeholder="LinkedIn password">
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_in_email">
+                  <span>Indeed email</span>
+                  <span class="req-mark">Required</span>
+                </label>
+                <input type="email" class="form-control form-control-pill" id="su_in_email" required placeholder="careers.indeed@company.pk">
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_in_password">
+                  <span>Indeed password</span>
+                  <span class="req-mark">Required</span>
+                </label>
+                <input type="password" class="form-control form-control-pill" id="su_in_password" minlength="6" required placeholder="Indeed password">
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_rz_email">
+                  <span>Rozee.pk email</span>
+                  <button type="button" class="info-tip" data-bs-toggle="tooltip" title="Optional. Leave blank if you do not use Rozee.pk yet.">i</button>
+                  <span class="opt-mark">Optional</span>
+                </label>
+                <input type="email" class="form-control form-control-pill" id="su_rz_email" placeholder="careers.rozee@company.pk">
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="form-group">
+                <label class="form-label-custom" for="su_rz_password">
+                  <span>Rozee.pk password</span>
+                  <span class="opt-mark">Optional</span>
+                </label>
+                <input type="password" class="form-control form-control-pill" id="su_rz_password" minlength="6" placeholder="Rozee.pk password">
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-submit-pill"><span>Create account</span><i class="bi bi-arrow-right"></i></button>
+        </form>
+
+        <div class="auth-footer-row">
+          <span>Have an account?</span>
+          <button type="button" data-auth-switch="signin">Sign in</button>
+        </div>
+      </div>
+
+      <!-- ======================= SIGN IN PANEL ======================= -->
+      <div data-auth-panel="signin" class="{% if is_signup %}d-none{% endif %}">
+        <div class="auth-header">
+          <h1 class="auth-title">Welcome back</h1>
+          <p class="auth-subtitle">Sign in with the work email and password for your HR account.</p>
+        </div>
+
+        <form class="auth-form needs-validation" novalidate data-demo-auth-form data-success-message="Signed in. Opening your HR portal...">
+          <div class="alert alert-success py-2 px-3 small d-none" data-form-banner role="alert"></div>
+
+          <div class="form-group">
+            <label class="form-label-custom" for="si_email">
+              <span>Work email</span>
+              <button type="button" class="info-tip" data-bs-toggle="tooltip" title="This is the only sign-in method for AutoHR.">i</button>
+              <span class="req-mark">Required</span>
+            </label>
+            <input type="email" class="form-control form-control-pill" id="si_email" required placeholder="hr@company.pk" value="ayesha.khan@northbridge.pk">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label-custom" for="si_password">
+              <span>Password</span>
+              <span class="req-mark">Required</span>
+            </label>
+            <div class="position-relative">
+              <input type="password" class="form-control form-control-pill" id="si_password" minlength="8" required placeholder="Enter your password">
+              <button type="button" class="input-icon-btn" data-toggle-password="si_password"><i class="bi bi-eye"></i></button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-submit-pill"><span>Sign in</span><i class="bi bi-arrow-right"></i></button>
+        </form>
+
+        <div class="auth-footer-row">
+          <span>Don't have an account?</span>
+          <button type="button" data-auth-switch="signup">Register</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= VISUAL SIDE PANEL ======================= -->
+    <div class="visual-section d-none d-lg-flex">
+      <div class="overlays-container">
+        <div class="widget-float align-self-start mt-2 ms-2">
+          <div class="wf-title"><i class="bi bi-camera-video-fill me-1" style="color:#d97706;"></i>AI Interview — Live</div>
+          <div class="wf-sub">Technical Round · 11:00 AM PKT</div>
+        </div>
+
+        <div class="widget-stat-pill">
+          <div class="d-flex justify-content-between align-items-center">
+            <span style="font-size:12px; font-weight:700;">This Week in Hiring</span>
+            <i class="bi bi-graph-up-arrow" style="color:#f5be42;"></i>
+          </div>
+          <div class="widget-stat-row">
+            <div><div class="n">212</div><div class="l">New Applicants</div></div>
+            <div><div class="n">96</div><div class="l">AI Shortlisted</div></div>
+            <div><div class="n">24</div><div class="l">Decided</div></div>
+          </div>
+        </div>
+
+        <div class="widget-float alt align-self-end me-2 mb-2" style="min-width:190px;">
+          <div class="wf-title">Daily Standup — HR</div>
+          <div class="wf-sub">12:00pm – 12:30pm · Lahore Office</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

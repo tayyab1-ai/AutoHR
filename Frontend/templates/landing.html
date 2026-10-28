@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}AutoHR — AI Hiring Platform for Pakistan{% endblock %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg landing-nav">
+  <div class="container">
+    <a class="navbar-brand nav-brand" href="{% url 'landing' %}">
+      <span class="brand-badge"><span class="brand-pulse-dot"></span>AutoHR</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-controls="navMain" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav mx-lg-auto my-3 my-lg-0 gap-lg-4">
+        <li class="nav-item"><a class="nav-link nav-link-custom" href="#pipeline">10-Step Pipeline</a></li>
+        <li class="nav-item"><a class="nav-link nav-link-custom" href="#scoring">5D AI Scoring</a></li>
+        <li class="nav-item"><a class="nav-link nav-link-custom" href="#tech">Tech Stack</a></li>
+        <li class="nav-item"><a class="nav-link nav-link-custom" href="{% url 'dashboard' %}">Dashboard Demo</a></li>
+      </ul>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="pk-flag-pill d-none d-lg-inline-flex"><i class="bi bi-geo-alt-fill"></i> Made for Pakistan</span>
+        <a href="{% url 'login' %}" class="btn btn-nav-ghost">Sign In</a>
+        <a href="{% url 'register' %}" class="btn btn-nav-primary"><span>Get Started</span><i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<section class="hero-section">
+  <div class="hero-glow-1"></div>
+  <div class="container">
+    <div class="hero-content" data-aos="fade-up">
+      <div class="hero-pill-tag">
+        <span class="hero-pill-badge">Phase 1 Live</span>
+        <i class="bi bi-stars" style="color:#b45309;"></i>
+        <span>Autonomous Recruitment Pipeline for Pakistan's HR Teams</span>
+      </div>
+
+      <h1 class="hero-title">Hire the Top 1% Faster with <span>Autonomous AI Workflows</span></h1>
+
+      <p class="hero-desc">
+        An aligned 10-step recruitment engine across 4 phases: multi-platform posting on Rozee.pk &amp; Indeed Pakistan,
+        AI CV screening, 3-stage interactive video interviews, and explainable candidate rankings — built for HR teams
+        in Lahore, Karachi, and Islamabad.
+      </p>
+
+      <div class="d-flex flex-wrap justify-content-center gap-3 mb-4">
+        <a href="{% url 'register' %}" class="btn btn-hero-primary"><span>Start 30-Day Free Trial</span><i class="bi bi-arrow-right"></i></a>
+        <a href="{% url 'dashboard' %}" class="btn btn-hero-secondary"><span>View Dashboard Demo</span><i class="bi bi-chevron-right"></i></a>
+      </div>
+
+      <div class="hero-stats-ribbon">
+        <div class="stat-item"><span class="stat-value" data-count-to="85" data-count-suffix="%">0%</span><span class="stat-label">Faster Time-to-Hire</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat-item"><span class="stat-value">10 Steps</span><span class="stat-label">Continuous Pipeline</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat-item"><span class="stat-value">5 Dimensions</span><span class="stat-label">Objective AI Scoring</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat-item"><span class="stat-value" data-count-to="1284" data-count-decimals="0">0</span><span class="stat-label">Applications This Month</span></div>
+      </div>
+    </div>
+
+    <div class="hero-preview-wrapper" data-aos="fade-up" data-aos-delay="150">
+      <div class="hero-preview-frame">
+        <div class="preview-mock-dashboard">
+          <div class="preview-mock-topbar">
+            <div class="d-flex align-items-center gap-2">
+              <span class="preview-mock-dot" style="background:#ef4444;"></span>
+              <span class="preview-mock-dot" style="background:#f59e0b;"></span>
+              <span class="preview-mock-dot" style="background:#22c55e;"></span>
+            </div>
+            <span style="color:#94a3b8; font-size:12px;">autohr.pk/dashboard</span>
+            <i class="bi bi-arrow-up-right-circle" style="color:#f5be42;"></i>
+          </div>
+          <div class="preview-mock-grid">
+            <div class="preview-mock-card">
+              <div class="mock-val">18</div>
+              <div class="mock-label">Active Jobs — Rozee.pk</div>
+            </div>
+            <div class="preview-mock-card">
+              <div class="mock-val">1,284</div>
+              <div class="mock-label">Applications (30d)</div>
+            </div>
+            <div class="preview-mock-card">
+              <div class="mock-val">96</div>
+              <div class="mock-label">AI Shortlisted</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="trust-strip">
+  <div class="container">
+    <p class="text-center text-muted small mb-4 text-uppercase" style="letter-spacing:0.08em;">Built to plug into the boards Pakistani HR teams already use</p>
+    <div class="row g-4 align-items-center justify-content-center">
+      <div class="col-4 col-md-2"><div class="trust-logo">Rozee.pk</div></div>
+      <div class="col-4 col-md-2"><div class="trust-logo">Indeed PK</div></div>
+      <div class="col-4 col-md-2"><div class="trust-logo">LinkedIn</div></div>
+      <div class="col-4 col-md-2"><div class="trust-logo">Mettl</div></div>
+      <div class="col-4 col-md-2"><div class="trust-logo">PSEB</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="pipeline" class="section-pad">
+  <div class="container">
+    <div class="section-header" data-aos="fade-up">
+      <span class="section-pill">The Aligned Workflow</span>
+      <h2 class="section-title">4 Phases. 10 Continuous Steps.</h2>
+      <p class="section-subtitle">Every step seamlessly passes its output to the next, from role creation to final hiring decisions.</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-12 col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="0">
+        <div class="phase-card">
+          <span class="phase-badge phase-1">Phase 1 &bull; Post</span>
+          <h3 class="phase-title">Post &amp; Distribute</h3>
+          <p class="phase-desc">Generate tailored role specs, approve AI-drafted job postings, and publish instantly across top Pakistani boards.</p>
+          <div class="steps-list">
+            <div class="step-item"><span class="step-num">1</span><span><strong>Job input:</strong> HR enters role title, skills, experience, PKR salary &amp; hire count.</span></div>
+            <div class="step-item"><span class="step-num">2</span><span><strong>AI JD generation:</strong> LLM drafts the description; HR reviews and approves.</span></div>
+            <div class="step-item"><span class="step-num">3</span><span><strong>Multi-board posting:</strong> Live publishing to Rozee.pk and Indeed Pakistan.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="100">
+        <div class="phase-card">
+          <span class="phase-badge phase-2">Phase 2 &bull; Screen</span>
+          <h3 class="phase-title">Screen &amp; Shortlist</h3>
+          <p class="phase-desc">Collect inbound applications, run AI semantic CV matching, and automatically filter candidates.</p>
+          <div class="steps-list">
+            <div class="step-item"><span class="step-num">4</span><span><strong>Application collection:</strong> Resumes arrive via dedicated inbox or the careers page.</span></div>
+            <div class="step-item"><span class="step-num">5</span><span><strong>AI CV screening:</strong> Parsed into structured data and scored against criteria.</span></div>
+            <div class="step-item"><span class="step-num">6</span><span><strong>Shortlist &amp; notify:</strong> Top candidates shortlisted; rejections sent automatically.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="200">
+        <div class="phase-card">
+          <span class="phase-badge phase-3">Phase 3 &bull; Interview</span>
+          <h3 class="phase-title">AI Video Interview</h3>
+          <p class="phase-desc">Autonomous 3-stage interviews with speech transcription and multi-parameter scorecards.</p>
+          <div class="steps-list">
+            <div class="step-item"><span class="step-num">7</span><span><strong>Schedule &amp; consent:</strong> Self-serve time picker with mandatory recording consent.</span></div>
+            <div class="step-item"><span class="step-num">8</span><span><strong>3-Stage AI interview:</strong> Screening &rarr; Technical &rarr; Behavioral.</span></div>
+            <div class="step-item"><span class="step-num">9</span><span><strong>Speech analysis:</strong> Whisper transcription &amp; 5-dimension scoring (0&ndash;10).</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="300">
+        <div class="phase-card">
+          <span class="phase-badge phase-4">Phase 4 &bull; Decide</span>
+          <h3 class="phase-title">Decide &amp; Retain</h3>
+          <p class="phase-desc">Weighted composite leaderboard with explainable AI reasons and smart storage retention.</p>
+          <div class="steps-list">
+            <div class="step-item"><span class="step-num">10</span><span><strong>Final ranking:</strong> Combined CV + interview score shown on the HR dashboard.</span></div>
+            <div class="step-item"><span class="step-num">&bull;</span><span><strong>AI rationale:</strong> A clear hiring justification is generated for each applicant.</span></div>
+            <div class="step-item"><span class="step-num">&bull;</span><span><strong>Retention policy:</strong> Recordings kept only for top candidates; the rest are purged.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="scoring" class="scoring-section">
+  <div class="container">
+    <div class="section-header" data-aos="fade-up">
+      <span class="section-pill" style="background:rgba(245,190,66,0.2); color:#f5be42;">Step 9 Assessment Framework</span>
+      <h2 class="section-title" style="color:#fff;">5-Dimension AI Interview Rubric</h2>
+      <p class="section-subtitle" style="color:#94a3b8;">Every candidate response is transcribed and objectively scored across five competency dimensions, each out of 10.</p>
+    </div>
+
+    <div class="row g-3">
+      {% for dim in "12345" %}
+      <div class="col-6 col-lg">
+        {% if forloop.counter == 1 %}
+        <div class="dimension-card" data-aos="fade-up" data-aos-delay="0">
+          <div class="dim-icon-wrapper"><i class="bi bi-mic-fill"></i></div>
+          <h4 class="dim-name">Communication</h4><span class="dim-score-badge">/ 10</span>
+          <p class="dim-desc">Articulation, clarity, brevity, and structured delivery in both English and Urdu-accented speech.</p>
+        </div>
+        {% elif forloop.counter == 2 %}
+        <div class="dimension-card" data-aos="fade-up" data-aos-delay="80">
+          <div class="dim-icon-wrapper"><i class="bi bi-shield-check"></i></div>
+          <h4 class="dim-name">Confidence</h4><span class="dim-score-badge">/ 10</span>
+          <p class="dim-desc">Decisiveness, composure under pressure, steady pace, and affirmative phrasing.</p>
+        </div>
+        {% elif forloop.counter == 3 %}
+        <div class="dimension-card" data-aos="fade-up" data-aos-delay="160">
+          <div class="dim-icon-wrapper"><i class="bi bi-cpu-fill"></i></div>
+          <h4 class="dim-name">Technical Knowledge</h4><span class="dim-score-badge">/ 10</span>
+          <p class="dim-desc">Domain expertise depth, conceptual correctness, architecture reasoning, and terminology.</p>
+        </div>
+        {% elif forloop.counter == 4 %}
+        <div class="dimension-card" data-aos="fade-up" data-aos-delay="240">
+          <div class="dim-icon-wrapper"><i class="bi bi-check-circle-fill"></i></div>
+          <h4 class="dim-name">Relevance</h4><span class="dim-score-badge">/ 10</span>
+          <p class="dim-desc">Direct answer precision, avoiding evasiveness, and staying tightly targeted on the prompt.</p>
+        </div>
+        {% else %}
+        <div class="dimension-card" data-aos="fade-up" data-aos-delay="320">
+          <div class="dim-icon-wrapper"><i class="bi bi-lightbulb-fill"></i></div>
+          <h4 class="dim-name">Problem-Solving</h4><span class="dim-score-badge">/ 10</span>
+          <p class="dim-desc">Analytical reasoning, structured decomposition, trade-off evaluation, and edge-case handling.</p>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="tech" class="section-pad">
+  <div class="container">
+    <div class="section-header" data-aos="fade-up">
+      <span class="section-pill">Engineered For Scale</span>
+      <h2 class="section-title">Production Technology Stack</h2>
+      <p class="section-subtitle">Built on a resilient stack optimized for async AI inference, simple HTML pages, and local deployment for Pakistani HR teams.</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-12 col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="0">
+        <div class="tech-card">
+          <span class="tech-layer-tag">Frontend</span>
+          <h4 class="tech-title">HTML + Bootstrap 5</h4>
+          <p class="tech-items">Django templates, Bootstrap grid &amp; components, Bootstrap Icons, and small vanilla JS for same-screen navigation.</p>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="100">
+        <div class="tech-card">
+          <span class="tech-layer-tag">Backend</span>
+          <h4 class="tech-title">Python + Django</h4>
+          <p class="tech-items">A single Django project handles pages, forms, HR accounts, and the hiring pipeline logic.</p>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="200">
+        <div class="tech-card">
+          <span class="tech-layer-tag">AI Automation</span>
+          <h4 class="tech-title">LLMs + Whisper</h4>
+          <p class="tech-items">Chat-model APIs draft job descriptions, score CVs, and rank candidates; Whisper transcribes interviews.</p>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="300">
+        <div class="tech-card">
+          <span class="tech-layer-tag">Data</span>
+          <h4 class="tech-title">PostgreSQL</h4>
+          <p class="tech-items">Accounts, job postings, applications, interviews, and rankings are stored in PostgreSQL.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section-pad pt-0">
+  <div class="container">
+    <div class="section-header" data-aos="fade-up">
+      <span class="section-pill">Trusted By Growing Teams</span>
+      <h2 class="section-title">What HR Managers Are Saying</h2>
+    </div>
+    <div class="row g-4">
+      <div class="col-12 col-md-4" data-aos="fade-up" data-aos-delay="0">
+        <div class="testimonial-card">
+          <div class="testimonial-stars"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i></div>
+          <p class="testimonial-quote">"We cut our time-to-hire for engineering roles from six weeks to under three. The AI shortlisting alone saved our team days every week."</p>
+          <div class="testimonial-person">
+            <span class="avatar-circle" style="width:40px;height:40px;font-size:13px;">AK</span>
+            <div><div class="fw-semibold" style="font-size:13px;">Ayesha Khan</div><div class="text-muted" style="font-size:11.5px;">HR Manager, Northbridge Technologies, Lahore</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4" data-aos="fade-up" data-aos-delay="100">
+        <div class="testimonial-card">
+          <div class="testimonial-stars"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i></div>
+          <p class="testimonial-quote">"Posting once to both Rozee.pk and Indeed Pakistan and getting a ranked shortlist back is exactly what our lean HR team needed."</p>
+          <div class="testimonial-person">
+            <span class="avatar-circle" style="width:40px;height:40px;font-size:13px;">BH</span>
+            <div><div class="fw-semibold" style="font-size:13px;">Bilal Haider</div><div class="text-muted" style="font-size:11.5px;">Talent Lead, Devsinc, Karachi</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4" data-aos="fade-up" data-aos-delay="200">
+        <div class="testimonial-card">
+          <div class="testimonial-stars"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i></div>
+          <p class="testimonial-quote">"The 5-dimension interview scorecards gave us a defensible, explainable reason for every hiring decision we made last quarter."</p>
+          <div class="testimonial-person">
+            <span class="avatar-circle" style="width:40px;height:40px;font-size:13px;">SR</span>
+            <div><div class="fw-semibold" style="font-size:13px;">Sidra Raza</div><div class="text-muted" style="font-size:11.5px;">People Ops Lead, 10Pearls, Islamabad</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section-pad pt-0">
+  <div class="container">
+    <div class="cta-banner" data-aos="zoom-in">
+      <h2 class="cta-title">Ready to Automate Your Hiring Workflow?</h2>
+      <p class="cta-desc">Join HR teams across Pakistan cutting time-to-hire with autonomous multi-board posting, AI screening, and video evaluations.</p>
+      <a href="{% url 'register' %}" class="btn btn-hero-primary"><span>Launch Your First AI Job Post</span><i class="bi bi-arrow-right"></i></a>
+    </div>
+  </div>
+</section>
+
+<footer class="landing-footer">
+  <div class="container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+    <span class="brand-badge" style="padding:6px 14px;"><span class="brand-pulse-dot"></span>AutoHR &copy; 2026</span>
+    <div class="d-flex gap-4">
+      <a href="#pipeline" class="footer-link">Pipeline</a>
+      <a href="#scoring" class="footer-link">5D Scoring</a>
+      <a href="#tech" class="footer-link">Technology</a>
+      <a href="{% url 'login' %}" class="footer-link">Login Portal</a>
+    </div>
+    <p class="text-muted small mb-0">Designed for Pakistan's Phase 1–4 recruitment workflow.</p>
+  </div>
+</footer>
+{% endblock %}
