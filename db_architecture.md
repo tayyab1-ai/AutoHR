@@ -191,8 +191,8 @@ Step 1 intake: everything HR enters on **Create Job** (sections A, B, C, D, G), 
 | `shortlist_after_interview_count` | INT | yes | `10` | Check: `>= 1` |
 | **Workflow** | | | | |
 | `ai_jd_prompt_payload` | JSONB | | | Snapshot for AI step |
-| `ai_generated_jd_draft` | TEXT | | | |
-| `approved_jd_content` | TEXT | | | |
+| `ai_generated_jd_draft` | TEXT | | | AI-generated job description (Groq) |
+| `approved_jd_content` | TEXT | | | Finalized description after HR review/edit |
 | `status` | `job_status_enum` | yes | `draft` | |
 | `approved_at` | TIMESTAMPTZ | | | |
 | `created_at` / `updated_at` | TIMESTAMPTZ | yes | now | `updated_at` trigger |

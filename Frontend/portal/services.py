@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .choices import DEPARTMENTS, JOB_CATEGORIES
+from .groq_jd import generate_job_description_text
 from .models import JobPosting, JobResponsibility
 
 _DEPT_LABELS = dict(DEPARTMENTS)
@@ -111,3 +112,34 @@ def jobs_for_dashboard(company):
             }
         )
     return rows
+
+
+def get_job_for_company(job_id, company) -> JobPosting:
+    return (
+        JobPosting.objects.select_related("company")
+        .prefetch_related("responsibilities")
+        .get(id=job_id, company=company)
+    )
+
+
+def generate_ai_job_description(job: JobPosting) -> JobPosting:
+    text, meta = generate_job_description_text(job)
+    now = timezone.now()
+    payload = job.ai_jd_prompt_payload or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    payload["last_generation"] = meta
+    job.ai_generated_jd_draft = text
+    job.ai_jd_prompt_payload = payload
+    job.updated_at = now
+    job.save(update_fields=["ai_generated_jd_draft", "ai_jd_prompt_payload", "updated_at"])
+    return job
+
+
+def save_finalized_job_description(job: JobPosting, content: str) -> JobPosting:
+    """Persist HR-approved copy (edited or same as AI draft)."""
+    now = timezone.now()
+    job.approved_jd_content = content.strip()
+    job.updated_at = now
+    job.save(update_fields=["approved_jd_content", "updated_at"])
+    return job

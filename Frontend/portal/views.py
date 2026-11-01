@@ -5,7 +5,14 @@ from django.views.decorators.http import require_POST
 from . import data
 from .dev_actor import ensure_demo_hr
 from .forms import JobIntakeForm
-from .services import create_job_posting, jobs_for_dashboard
+from .models import JobPosting
+from .services import (
+    create_job_posting,
+    generate_ai_job_description,
+    get_job_for_company,
+    jobs_for_dashboard,
+    save_finalized_job_description,
+)
 
 
 def landing(request):
@@ -62,11 +69,86 @@ def create_job_post(request):
         return JsonResponse({"ok": False, "errors": form.errors}, status=400)
 
     job = create_job_posting(company, user, form.cleaned_data)
+
+    ai_error = None
+    try:
+        job = generate_ai_job_description(job)
+    except RuntimeError as exc:
+        ai_error = str(exc)
+
+    payload = {
+        "ok": True,
+        "job_id": str(job.id),
+        "title": job.title,
+        "ai_ok": ai_error is None,
+        "ai_generated_jd": job.ai_generated_jd_draft if ai_error is None else None,
+        "message": "Job details saved.",
+    }
+    if ai_error:
+        payload["errors"] = {"ai": [ai_error]}
+        payload["message"] = (
+            "Job details saved as draft, but AI could not generate a description yet. "
+            "Fix the issue below and use Retry."
+        )
+    else:
+        payload["message"] = "Job description generated. Review the draft below."
+
+    return JsonResponse(payload)
+
+
+@require_POST
+def generate_job_jd(request, job_id):
+    company, _user = ensure_demo_hr()
+    try:
+        job = get_job_for_company(job_id, company)
+    except JobPosting.DoesNotExist:
+        return JsonResponse({"ok": False, "errors": {"job": ["Job not found."]}}, status=404)
+
+    try:
+        job = generate_ai_job_description(job)
+    except RuntimeError as exc:
+        return JsonResponse(
+            {"ok": False, "errors": {"ai": [str(exc)]}},
+            status=502,
+        )
+
     return JsonResponse(
         {
             "ok": True,
             "job_id": str(job.id),
             "title": job.title,
-            "message": "Job saved as draft. AI job description generation will be added in the next step.",
+            "ai_generated_jd": job.ai_generated_jd_draft,
+        }
+    )
+
+
+@require_POST
+def prepare_google_form(request, job_id):
+    """Step 3 placeholder: persist finalized description; Google Form wiring comes later."""
+    company, _user = ensure_demo_hr()
+    try:
+        job = get_job_for_company(job_id, company)
+    except JobPosting.DoesNotExist:
+        return JsonResponse({"ok": False, "errors": {"job": ["Job not found."]}}, status=404)
+
+    finalized = (request.POST.get("finalized_jd") or "").strip()
+    if not finalized:
+        finalized = (job.ai_generated_jd_draft or "").strip()
+    if not finalized:
+        return JsonResponse(
+            {
+                "ok": False,
+                "errors": {"finalized_jd": ["Add or generate a job description before continuing."]},
+            },
+            status=400,
+        )
+
+    save_finalized_job_description(job, finalized)
+    return JsonResponse(
+        {
+            "ok": True,
+            "job_id": str(job.id),
+            "finalized_jd": job.approved_jd_content,
+            "message": "Final job description saved. Google Form creation will be added in the next step.",
         }
     )

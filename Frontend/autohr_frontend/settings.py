@@ -11,8 +11,12 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-def _load_dotenv(path):
-    """Load KEY=value lines from a local .env file without overriding the real environment."""
+def _load_dotenv(path, *, override=False):
+    """Load KEY=value lines from Frontend/.env.
+
+    override=True for local dev so values in .env replace stale shell exports
+    (e.g. an old GROQ_API_KEY left in the terminal or system environment).
+    """
     if not path.is_file():
         return
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -22,11 +26,11 @@ def _load_dotenv(path):
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
+        if key and (override or key not in os.environ):
             os.environ[key] = value
 
 
-_load_dotenv(BASE_DIR / ".env")
+_load_dotenv(BASE_DIR / ".env", override=True)
 
 # Real keys belong in Frontend/.env, which git ignores.
 # This fallback is only for local demo runs with no .env file.

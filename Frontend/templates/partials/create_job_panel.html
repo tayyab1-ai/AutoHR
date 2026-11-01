@@ -1,10 +1,10 @@
 {% load static %}
-<div class="db-stepper">
-  <div class="db-step-item is-active"><span class="db-step-num">1</span><span>Job Details</span></div>
+<div class="db-stepper" data-create-job-stepper>
+  <div class="db-step-item is-active" data-step-indicator="1"><span class="db-step-num">1</span><span>Job Details</span></div>
   <div class="db-step-separator"></div>
-  <div class="db-step-item"><span class="db-step-num">2</span><span>AI Job Description</span></div>
+  <div class="db-step-item" data-step-indicator="2"><span class="db-step-num">2</span><span>AI Job Description</span></div>
   <div class="db-step-separator"></div>
-  <div class="db-step-item"><span class="db-step-num">3</span><span>Publish to Boards</span></div>
+  <div class="db-step-item" data-step-indicator="3"><span class="db-step-num">3</span><span>Publish to Boards</span></div>
 </div>
 
 <div class="row g-4" data-create-job-fields>
@@ -267,10 +267,10 @@
             </div>
           </section>
 
-          <button type="button" class="btn-db-primary w-100 justify-content-center py-2 mt-2" data-generate-jd>
+          <button type="button" class="btn-db-primary w-100 justify-content-center py-2 mt-2" data-generate-jd id="generate-jd-btn">
             <i class="bi bi-stars"></i> Generate Job Description
           </button>
-          <p class="small text-muted text-center mt-2 mb-0">Saves a draft job in PostgreSQL. AI generation is a placeholder until the next step.</p>
+          <p class="small text-muted text-center mt-2 mb-0">Validates your intake, saves the job, then drafts a tone-matched description with Groq AI.</p>
         </form>
       </div>
     </div>
@@ -313,14 +313,62 @@
   </div>
 </div>
 
-<div class="row g-4 d-none" data-create-job-result>
-  <div class="col-12">
+<div class="row g-4 d-none" data-create-job-jd-step>
+  <div class="col-12 col-lg-8">
     <div class="db-card">
-      <div class="db-card-body db-save-result">
-        <div class="db-save-mark"><i class="bi bi-check-lg"></i></div>
-        <h3>Job saved as draft</h3>
-        <p data-create-job-success-text>Your job posting was saved to PostgreSQL.</p>
-        <button type="button" class="btn-db-primary" data-go-panel="jobs">Go to Jobs <i class="bi bi-arrow-right"></i></button>
+      <div class="db-card-header d-flex flex-wrap align-items-center gap-2">
+        <h2 class="db-card-title mb-0"><i class="bi bi-stars text-warning"></i> <span data-jd-step-title>AI Job Description</span></h2>
+        <span class="db-badge db-badge-draft ms-auto" data-jd-job-badge>Draft</span>
+      </div>
+      <div class="db-card-body">
+        <div class="alert alert-danger py-2 px-3 small d-none" data-jd-errors role="alert"></div>
+
+        <div class="db-jd-loading d-none" data-jd-loading>
+          <div class="db-jd-spinner" aria-hidden="true"></div>
+          <h3 class="h5 mb-2">Crafting your job description</h3>
+          <p class="text-muted mb-0">Our AI is turning your validated job details into a polished posting in the tone you selected. This usually takes a few seconds.</p>
+        </div>
+
+        <div class="d-none text-center py-4" data-jd-retry-wrap>
+          <p class="text-muted mb-3">Your job is saved as a draft in the database. AI generation did not complete.</p>
+          <button type="button" class="btn-db-primary" data-jd-retry><i class="bi bi-arrow-clockwise"></i> Retry AI generation</button>
+        </div>
+
+        <div class="d-none" data-jd-editor>
+          <p class="small text-muted mb-3">Review the draft below. You can edit anything before moving to the Google Form step.</p>
+          <div class="db-jd-preview-wrap">
+            <div class="db-jd-formatted" data-jd-preview tabindex="0"></div>
+            <textarea class="db-jd-textarea d-none" rows="22" data-jd-textarea aria-label="Job description"></textarea>
+          </div>
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button type="button" class="btn-db-secondary" data-jd-toggle-edit><i class="bi bi-pencil"></i> Edit description</button>
+            <button type="button" class="btn-db-secondary d-none" data-jd-preview-mode><i class="bi bi-eye"></i> Preview formatted</button>
+          </div>
+          <button type="button" class="btn-db-primary w-100 justify-content-center py-2 mt-4" data-post-google-form>
+            <i class="bi bi-file-earmark-plus"></i> Post Create Google Form
+          </button>
+          <p class="small text-muted text-center mt-2 mb-0">Saves the finalized description to the database. Google Form automation is coming next.</p>
+        </div>
+
+        <div class="d-none db-save-result mt-2" data-jd-complete>
+          <div class="db-save-mark"><i class="bi bi-check-lg"></i></div>
+          <h3>Ready for Google Form</h3>
+          <p data-jd-complete-text>Your finalized job description is stored.</p>
+          <button type="button" class="btn-db-primary" data-go-panel="jobs">Go to Jobs <i class="bi bi-arrow-right"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="db-card db-preview-sticky">
+      <div class="db-card-header"><h2 class="db-card-title"><i class="bi bi-info-circle text-muted"></i> What happens next</h2></div>
+      <div class="db-card-body small text-muted">
+        <ol class="ps-3 mb-0">
+          <li class="mb-2">Intake fields are validated and saved to PostgreSQL.</li>
+          <li class="mb-2">Groq AI writes a full description using your tone and requirements.</li>
+          <li class="mb-2">You review or edit the text; we store the finalized version.</li>
+          <li>Google Form creation will use that finalized copy in a later update.</li>
+        </ol>
       </div>
     </div>
   </div>

@@ -7,11 +7,37 @@ document.addEventListener("DOMContentLoaded", function () {
   var generateBtn = document.querySelector("[data-generate-jd]");
   var errorBox = document.querySelector("[data-create-job-errors]");
   var formBox = document.querySelector("[data-create-job-fields]");
-  var resultBox = document.querySelector("[data-create-job-result]");
+  var jdStep = document.querySelector("[data-create-job-jd-step]");
+  var stepper = document.querySelector("[data-create-job-stepper]");
+
+  var jdLoading = document.querySelector("[data-jd-loading]");
+  var jdEditor = document.querySelector("[data-jd-editor]");
+  var jdComplete = document.querySelector("[data-jd-complete]");
+  var jdErrors = document.querySelector("[data-jd-errors]");
+  var jdPreview = document.querySelector("[data-jd-preview]");
+  var jdTextarea = document.querySelector("[data-jd-textarea]");
+  var jdTitle = document.querySelector("[data-jd-step-title]");
+  var toggleEditBtn = document.querySelector("[data-jd-toggle-edit]");
+  var previewModeBtn = document.querySelector("[data-jd-preview-mode]");
+  var postGoogleBtn = document.querySelector("[data-post-google-form]");
+  var jdRetryWrap = document.querySelector("[data-jd-retry-wrap]");
+  var jdRetryBtn = document.querySelector("[data-jd-retry]");
+
+  var currentJobId = null;
+  var aiDraftSnapshot = "";
 
   function getCsrfToken() {
     var input = form.querySelector('input[name="csrfmiddlewaretoken"]');
     return input ? input.value : "";
+  }
+
+  function setStepperActive(step) {
+    if (!stepper) return;
+    stepper.querySelectorAll("[data-step-indicator]").forEach(function (el) {
+      var n = el.getAttribute("data-step-indicator");
+      el.classList.toggle("is-active", String(step) === n);
+      el.classList.toggle("is-done", Number(n) < Number(step));
+    });
   }
 
   function wireChipInput(inputId, listId, hiddenName) {
@@ -174,7 +200,7 @@ document.addEventListener("DOMContentLoaded", function () {
   toggleConditionals();
   syncPreview();
 
-  function showErrors(payload) {
+  function showFormErrors(payload) {
     if (!errorBox) return;
     var lines = [];
     if (payload && typeof payload === "object") {
@@ -190,6 +216,205 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!lines.length) lines.push("Could not save the job. Check required fields.");
     errorBox.textContent = lines.join(" ");
     errorBox.classList.remove("d-none");
+    formBox?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function showJdErrors(payload) {
+    if (!jdErrors) return;
+    var lines = [];
+    if (payload && typeof payload === "object") {
+      Object.keys(payload).forEach(function (key) {
+        var msgs = payload[key];
+        if (Array.isArray(msgs)) {
+          msgs.forEach(function (m) {
+            lines.push(m);
+          });
+        }
+      });
+    }
+    if (!lines.length) lines.push("Something went wrong while generating the description.");
+    jdErrors.textContent = lines.join(" ");
+    jdErrors.classList.remove("d-none");
+  }
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function formatInline(text) {
+    var safe = escapeHtml(text);
+    safe = safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    safe = safe.replace(/__(.+?)__/g, "<strong>$1</strong>");
+    safe = safe.replace(/\*(.+?)\*/g, "<em>$1</em>");
+    return safe;
+  }
+
+  function isSectionTitle(line) {
+    if (line.length > 90 || line.indexOf(".") !== -1 && !/^(How to Apply|Equal Opportunity)/i.test(line)) {
+      return false;
+    }
+    if (/^Apply Here:/i.test(line)) return false;
+    if (/^[•\-\*]/.test(line)) return false;
+    if (/^\d+\./.test(line)) return false;
+    return /^[A-Z]/.test(line) && !line.endsWith(".");
+  }
+
+  function renderFormattedJd(text) {
+    if (!jdPreview) return;
+    var lines = (text || "").split("\n");
+    var html = [];
+    var inList = false;
+
+    function closeList() {
+      if (inList) {
+        html.push("</ul>");
+        inList = false;
+      }
+    }
+
+    lines.forEach(function (raw) {
+      var line = raw.replace(/\r$/, "");
+      var trimmed = line.trim();
+      if (!trimmed) {
+        closeList();
+        return;
+      }
+
+      var hashMatch = trimmed.match(/^#{1,4}\s+(.+)$/);
+      if (hashMatch) {
+        closeList();
+        html.push("<h4 class=\"db-jd-heading\">" + formatInline(hashMatch[1]) + "</h4>");
+        return;
+      }
+
+      if (/^Apply Here:/i.test(trimmed)) {
+        closeList();
+        var after = trimmed.replace(/^Apply Here:\s*/i, "");
+        html.push(
+          "<p class=\"db-jd-apply\"><strong>Apply Here:</strong> " +
+            '<span class="db-jd-apply-blank">' +
+            (after ? formatInline(after) : "&nbsp;") +
+            "</span></p>"
+        );
+        return;
+      }
+
+      if (/^[•\-\*]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
+        if (!inList) {
+          html.push("<ul class=\"db-jd-list\">");
+          inList = true;
+        }
+        var item = trimmed.replace(/^[•\-\*]\s+/, "").replace(/^\d+\.\s+/, "");
+        html.push("<li>" + formatInline(item) + "</li>");
+        return;
+      }
+
+      if (isSectionTitle(trimmed)) {
+        closeList();
+        html.push("<h4 class=\"db-jd-heading\">" + formatInline(trimmed) + "</h4>");
+        return;
+      }
+
+      closeList();
+      html.push("<p>" + formatInline(trimmed) + "</p>");
+    });
+
+    closeList();
+    jdPreview.innerHTML = html.join("");
+  }
+
+  function showJdEditor(text, title) {
+    aiDraftSnapshot = text;
+    if (jdRetryWrap) jdRetryWrap.classList.add("d-none");
+    if (jdTitle && title) jdTitle.textContent = "AI Job Description — " + title;
+    if (jdTextarea) jdTextarea.value = text;
+    renderFormattedJd(text);
+    if (jdLoading) jdLoading.classList.add("d-none");
+    if (jdEditor) jdEditor.classList.remove("d-none");
+    if (jdPreview) {
+      jdPreview.classList.remove("d-none");
+      jdPreview.style.display = "block";
+    }
+    if (jdTextarea) {
+      jdTextarea.classList.add("d-none");
+      jdTextarea.style.display = "none";
+    }
+    if (toggleEditBtn) toggleEditBtn.classList.remove("d-none");
+    if (previewModeBtn) previewModeBtn.classList.add("d-none");
+  }
+
+  function openJdStep(title, showLoading) {
+    setStepperActive(2);
+    if (formBox) formBox.classList.add("d-none");
+    if (jdStep) jdStep.classList.remove("d-none");
+    if (jdLoading) jdLoading.classList.toggle("d-none", !showLoading);
+    if (jdEditor) jdEditor.classList.add("d-none");
+    if (jdComplete) jdComplete.classList.add("d-none");
+    if (jdRetryWrap) jdRetryWrap.classList.add("d-none");
+    if (jdErrors) jdErrors.classList.add("d-none");
+    if (jdTitle) jdTitle.textContent = title ? "AI Job Description — " + title : "AI Job Description";
+    jdStep.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function showJdRetry() {
+    if (jdLoading) jdLoading.classList.add("d-none");
+    if (jdEditor) jdEditor.classList.add("d-none");
+    if (jdRetryWrap) jdRetryWrap.classList.remove("d-none");
+  }
+
+  function handleGenerateResponse(data, title) {
+    var jdText = (data.ai_generated_jd || "").trim();
+    if (data.ai_ok && jdText.length > 0) {
+      showJdEditor(jdText, title || data.title);
+      return;
+    }
+    if (data.errors) {
+      showJdErrors(data.errors);
+    } else if (!data.ai_ok) {
+      showJdErrors({ ai: ["AI did not return a job description. Try Retry."] });
+    }
+    showJdRetry();
+  }
+
+  function runGenerateJd(jobId, title) {
+    if (jdRetryWrap) jdRetryWrap.classList.add("d-none");
+    if (jdErrors) jdErrors.classList.add("d-none");
+    if (jdLoading) jdLoading.classList.remove("d-none");
+    if (jdEditor) jdEditor.classList.add("d-none");
+
+    return fetchGenerateJd(jobId)
+      .then(function (genResult) {
+        if (!genResult.ok) {
+          showJdErrors(genResult.data.errors || genResult.data);
+          showJdRetry();
+          return;
+        }
+        showJdEditor(genResult.data.ai_generated_jd || "", title || genResult.data.title);
+      })
+      .catch(function () {
+        showJdErrors({ ai: ["Network error while generating the description."] });
+        showJdRetry();
+      })
+      .finally(function () {
+        if (jdLoading) jdLoading.classList.add("d-none");
+      });
+  }
+
+  function fetchGenerateJd(jobId) {
+    return fetch("/dashboard/jobs/" + jobId + "/generate-jd/", {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": getCsrfToken(),
+        Accept: "application/json",
+      },
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { ok: res.ok, data: data };
+      });
+    });
   }
 
   function submitJob() {
@@ -197,6 +422,9 @@ document.addEventListener("DOMContentLoaded", function () {
     if (generateBtn) {
       generateBtn.disabled = true;
       generateBtn.classList.add("is-loading");
+      generateBtn.dataset.loadingLabel = generateBtn.innerHTML;
+      generateBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Validating &amp; generating…';
     }
 
     fetch(form.action, {
@@ -214,23 +442,102 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .then(function (result) {
         if (!result.ok) {
-          showErrors(result.data.errors || result.data);
+          showFormErrors(result.data.errors || result.data);
           return;
         }
-        if (formBox) formBox.classList.add("d-none");
-        if (resultBox) resultBox.classList.remove("d-none");
-        var msg = document.querySelector("[data-create-job-success-text]");
-        if (msg && result.data.message) msg.textContent = result.data.message;
+        currentJobId = result.data.job_id;
+        openJdStep(result.data.title, !result.data.ai_ok);
+        handleGenerateResponse(result.data, result.data.title);
       })
       .catch(function () {
-        showErrors({ _: ["Network error while saving the job."] });
+        showFormErrors({ _: ["Network error while saving the job."] });
       })
       .finally(function () {
         if (generateBtn) {
           generateBtn.disabled = false;
           generateBtn.classList.remove("is-loading");
+          if (generateBtn.dataset.loadingLabel) {
+            generateBtn.innerHTML = generateBtn.dataset.loadingLabel;
+          }
         }
       });
+  }
+
+  if (toggleEditBtn && jdTextarea && jdPreview) {
+    toggleEditBtn.addEventListener("click", function () {
+      jdPreview.style.display = "none";
+      jdTextarea.classList.remove("d-none");
+      jdTextarea.style.display = "block";
+      toggleEditBtn.classList.add("d-none");
+      if (previewModeBtn) previewModeBtn.classList.remove("d-none");
+      jdTextarea.focus();
+    });
+  }
+
+  if (previewModeBtn && jdTextarea && jdPreview) {
+    previewModeBtn.addEventListener("click", function () {
+      renderFormattedJd(jdTextarea.value);
+      jdTextarea.classList.add("d-none");
+      jdTextarea.style.display = "none";
+      jdPreview.style.display = "block";
+      previewModeBtn.classList.add("d-none");
+      if (toggleEditBtn) toggleEditBtn.classList.remove("d-none");
+    });
+  }
+
+  if (postGoogleBtn) {
+    postGoogleBtn.addEventListener("click", function () {
+      if (!currentJobId) return;
+      if (jdErrors) jdErrors.classList.add("d-none");
+      postGoogleBtn.disabled = true;
+
+      var text = (jdTextarea && jdTextarea.value ? jdTextarea.value : aiDraftSnapshot).trim();
+
+      var body = new FormData();
+      body.append("finalized_jd", text.trim());
+
+      fetch("/dashboard/jobs/" + currentJobId + "/prepare-google-form/", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCsrfToken(),
+          Accept: "application/json",
+        },
+        body: body,
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) {
+            showJdErrors(result.data.errors || result.data);
+            return;
+          }
+          setStepperActive(3);
+          if (jdEditor) jdEditor.classList.add("d-none");
+          if (jdComplete) jdComplete.classList.remove("d-none");
+          var msg = document.querySelector("[data-jd-complete-text]");
+          if (msg && result.data.message) msg.textContent = result.data.message;
+        })
+        .catch(function () {
+          showJdErrors({ _: ["Network error while saving the finalized description."] });
+        })
+        .finally(function () {
+          postGoogleBtn.disabled = false;
+        });
+    });
+  }
+
+  if (jdRetryBtn) {
+    jdRetryBtn.addEventListener("click", function () {
+      if (!currentJobId) return;
+      jdRetryBtn.disabled = true;
+      runGenerateJd(currentJobId, jdTitle ? jdTitle.textContent.replace(/^AI Job Description — /, "") : "")
+        .finally(function () {
+          jdRetryBtn.disabled = false;
+        });
+    });
   }
 
   if (generateBtn) {
