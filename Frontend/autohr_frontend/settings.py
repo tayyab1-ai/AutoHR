@@ -1,11 +1,8 @@
 """
 Django settings for the AutoHR demo frontend.
 
-This project renders a polished, Pakistan-localized version of the AutoHR
-HR dashboard using plain HTML, CSS, Bootstrap 5, and small amounts of
-vanilla JavaScript. It intentionally has no database models yet: every
-page is populated with realistic demo data so the UI can be reviewed on
-its own before it is wired to the automation pipeline.
+Django frontend for AutoHR with PostgreSQL-backed job creation on the dashboard.
+Other dashboard panels still use demo data until they are wired to the database.
 """
 
 import os
@@ -43,6 +40,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
+    "django.contrib.postgres",
     "django.contrib.staticfiles",
     "portal",
 ]
@@ -72,7 +70,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "autohr_frontend.wsgi.application"
 
-DATABASES = {}
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("POSTGRES_DB", "autohr_n"),
+        "USER": os.environ.get("POSTGRES_USER", "autohr"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+    }
+}
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Karachi"

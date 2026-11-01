@@ -1,0 +1,327 @@
+{% load static %}
+<div class="db-stepper">
+  <div class="db-step-item is-active"><span class="db-step-num">1</span><span>Job Details</span></div>
+  <div class="db-step-separator"></div>
+  <div class="db-step-item"><span class="db-step-num">2</span><span>AI Job Description</span></div>
+  <div class="db-step-separator"></div>
+  <div class="db-step-item"><span class="db-step-num">3</span><span>Publish to Boards</span></div>
+</div>
+
+<div class="row g-4" data-create-job-fields>
+  <div class="col-12 col-lg-7">
+    <div class="db-card">
+      <div class="db-card-header">
+        <h2 class="db-card-title"><i class="bi bi-pencil-square text-warning"></i> Create Job Posting</h2>
+      </div>
+      <div class="db-card-body">
+        <div class="alert alert-danger py-2 px-3 small d-none" data-create-job-errors role="alert"></div>
+
+        <form class="needs-validation" novalidate data-create-job-form action="{% url 'create_job_post' %}" method="post">
+          {% csrf_token %}
+
+          <section class="db-form-section">
+            <h3 class="db-section-heading"><i class="bi bi-briefcase-fill"></i> A. Basic job information</h3>
+
+            <div class="db-field">
+              <label class="db-field-label" for="id_title">
+                <span>Job Title</span>
+                <button type="button" class="info-tip" data-bs-toggle="tooltip" title="The public role title candidates will see on job boards.">i</button>
+                <span class="db-required">Required</span>
+              </label>
+              {{ job_form.title }}
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_department"><span>Department</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Which internal department owns this hire.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.department }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_job_category"><span>Job Category</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Used for filtering rules and technical requirements.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.job_category }}
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_employment_type"><span>Employment Type</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Full-time, contract, internship, and so on.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.employment_type }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_work_mode"><span>Work Mode</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="On-site, remote, or hybrid expectations.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.work_mode }}
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_urgency_level"><span>Urgency Level</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="How quickly this role needs to be filled.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.urgency_level }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_city"><span>Job Location — City</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Primary work location for this role.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.city }}
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_target_hires"><span>Number of Vacancies</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="How many people you plan to hire for this posting.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.target_hires }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_company_name"><span>Company Name</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Must match your registered company on this HR account.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.company_name }}
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_posting_date"><span>Job Posting Date</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="When the role goes live on your careers page and boards.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.posting_date }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_application_deadline"><span>Application Deadline</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Last date candidates can apply for this role.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.application_deadline }}
+                </div>
+              </div>
+            </div>
+
+            <div class="db-field">
+              <label class="db-field-label" for="id_job_description"><span>Job Description</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Baseline description from HR. AI will refine this in the next step.">i</button><span class="db-required">Required</span></label>
+              {{ job_form.job_description }}
+            </div>
+          </section>
+
+          <section class="db-form-section">
+            <h3 class="db-section-heading"><i class="bi bi-mortarboard-fill"></i> B. Experience and education requirements</h3>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_min_experience_years"><span>Minimum Experience (Years)</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Used in rule-based CV filtering.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.min_experience_years }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_max_experience_years"><span>Maximum Experience (Years)</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Leave blank if there is no upper limit.">i</button><span class="db-optional">Optional</span></label>
+                  {{ job_form.max_experience_years }}
+                </div>
+              </div>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label"><span>Is Fresh Graduate Eligible?</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Whether candidates with no prior full-time experience may apply.">i</button><span class="db-required">Required</span></label>
+                  <div class="d-flex gap-3 mt-1">{{ job_form.fresh_graduate_eligible }}</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_min_education_level"><span>Minimum Education Level</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Minimum degree or equivalent required.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.min_education_level }}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="db-form-section">
+            <h3 class="db-section-heading"><i class="bi bi-cpu-fill"></i> C. Technical skills and job requirements</h3>
+
+            <div class="db-field">
+              <label class="db-field-label"><span>Required Skills</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Mandatory skills for shortlisting. Press Enter after each skill.">i</button><span class="db-required">Required</span></label>
+              <div class="db-skill-list" id="required-skill-list"></div>
+              <input type="text" class="db-input" id="required-skill-input" style="width:100%;" placeholder="Type a skill and press Enter">
+              {{ job_form.required_skills_csv }}
+            </div>
+
+            <div class="db-field d-none" data-conditional="programming_languages">
+              <label class="db-field-label"><span>Required Programming Languages</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Required for software, data, AI/ML, and cybersecurity roles.">i</button><span class="db-conditional">Conditional</span></label>
+              <div class="db-skill-list" id="programming-skill-list"></div>
+              <input type="text" class="db-input" id="programming-skill-input" style="width:100%;" placeholder="Type a language and press Enter">
+              {{ job_form.programming_languages_csv }}
+            </div>
+
+            <div class="db-field">
+              <label class="db-field-label"><span>Required Frameworks / Libraries</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Optional frameworks that help screening.">i</button><span class="db-optional">Optional</span></label>
+              <div class="db-skill-list" id="framework-skill-list"></div>
+              <input type="text" class="db-input" id="framework-skill-input" style="width:100%;" placeholder="Type a framework and press Enter">
+              {{ job_form.frameworks_csv }}
+            </div>
+
+            <div class="db-field">
+              <label class="db-field-label"><span>Required Tools / Software</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Tools such as Git, Jira, or Figma.">i</button><span class="db-optional">Optional</span></label>
+              <div class="db-skill-list" id="tools-skill-list"></div>
+              <input type="text" class="db-input" id="tools-skill-input" style="width:100%;" placeholder="Type a tool and press Enter">
+              {{ job_form.tools_csv }}
+            </div>
+
+            <div class="db-field">
+              <label class="db-field-label"><span>Required Cloud Platforms</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="AWS, Azure, GCP, or similar.">i</button><span class="db-optional">Optional</span></label>
+              <div class="db-skill-list" id="cloud-skill-list"></div>
+              <input type="text" class="db-input" id="cloud-skill-input" style="width:100%;" placeholder="Type a platform and press Enter">
+              {{ job_form.cloud_platforms_csv }}
+            </div>
+
+            <div class="db-field">
+              <label class="db-field-label" for="id_technical_knowledge"><span>Required Technical Knowledge</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Free-text technical expectations beyond skill tags.">i</button><span class="db-optional">Optional</span></label>
+              {{ job_form.technical_knowledge }}
+            </div>
+          </section>
+
+          <section class="db-form-section">
+            <h3 class="db-section-heading"><i class="bi bi-cash-coin"></i> D. Salary and benefits</h3>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_min_salary"><span>Minimum Salary</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Lower bound in PKR for the selected salary period.">i</button><span class="db-optional">Optional</span></label>
+                  {{ job_form.min_salary }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_max_salary"><span>Maximum Salary</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Upper bound in PKR for the selected salary period.">i</button><span class="db-optional">Optional</span></label>
+                  {{ job_form.max_salary }}
+                </div>
+              </div>
+            </div>
+            <div class="db-field">
+              <label class="db-field-label" for="id_salary_period"><span>Salary Period</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="How the salary range should be interpreted.">i</button><span class="db-required">Required</span></label>
+              {{ job_form.salary_period }}
+            </div>
+            <div class="db-checkbox-grid">
+              <label class="db-check-row">{{ job_form.salary_negotiable }} <span>Salary Negotiable?</span></label>
+              <label class="db-check-row">{{ job_form.performance_bonus }} <span>Performance Bonus</span></label>
+              <label class="db-check-row">{{ job_form.commission_incentives }} <span>Commission / Incentives</span></label>
+              <label class="db-check-row">{{ job_form.health_insurance }} <span>Health Insurance</span></label>
+              <label class="db-check-row">{{ job_form.provident_fund }} <span>Provident Fund / Retirement Benefits</span></label>
+              <label class="db-check-row">{{ job_form.relocation_assistance }} <span>Relocation Assistance</span></label>
+              <label class="db-check-row">{{ job_form.equipment_provided }} <span>Equipment Provided</span></label>
+            </div>
+            <div class="db-field">
+              <label class="db-field-label" for="id_paid_leave_policy"><span>Paid Leave Policy</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Annual leave, sick leave, or other paid time off.">i</button><span class="db-optional">Optional</span></label>
+              {{ job_form.paid_leave_policy }}
+            </div>
+            <div class="db-field">
+              <label class="db-field-label" for="id_other_benefits"><span>Other Benefits</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Any additional perks not covered above.">i</button><span class="db-optional">Optional</span></label>
+              {{ job_form.other_benefits }}
+            </div>
+          </section>
+
+          <section class="db-form-section">
+            <h3 class="db-section-heading"><i class="bi bi-list-check"></i> E. Responsibilities and job expectations</h3>
+            <div class="db-field">
+              <label class="db-field-label"><span>Key Responsibilities</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Add each core responsibility separately.">i</button><span class="db-required">Required</span></label>
+              <div data-repeat-list="key_responsibilities"></div>
+              <button type="button" class="btn-db-secondary btn-sm mt-2" data-add-repeat="key_responsibilities"><i class="bi bi-plus-lg"></i> Add another</button>
+            </div>
+            <div class="db-field">
+              <label class="db-field-label"><span>Daily Tasks</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Optional day-to-day tasks for this role.">i</button><span class="db-optional">Optional</span></label>
+              <div data-repeat-list="daily_tasks"></div>
+              <button type="button" class="btn-db-secondary btn-sm mt-2" data-add-repeat="daily_tasks"><i class="bi bi-plus-lg"></i> Add another</button>
+            </div>
+          </section>
+
+          <section class="db-form-section">
+            <h3 class="db-section-heading"><i class="bi bi-sliders"></i> G. Shortlisting and writing style</h3>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_shortlist_after_cv_count"><span>Number of Candidates to Shortlist for Interview</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Default 25. Allowed range is 20 to 30.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.shortlist_after_cv_count }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_shortlist_after_interview_count"><span>Number of Candidates to Shortlist After Interview</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="How many candidates move forward after interviews complete.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.shortlist_after_interview_count }}
+                </div>
+              </div>
+            </div>
+            <div class="db-field">
+              <label class="db-field-label" for="id_job_post_tone"><span>Job Post Tone</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Controls how AI writes the public job advertisement.">i</button><span class="db-required">Required</span></label>
+              {{ job_form.job_post_tone }}
+            </div>
+            <div class="db-field d-none" data-conditional="custom_tone">
+              <label class="db-field-label" for="id_custom_tone_instructions"><span>Custom tone instructions</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Required when Job Post Tone is Custom.">i</button><span class="db-conditional">Conditional</span></label>
+              {{ job_form.custom_tone_instructions }}
+            </div>
+          </section>
+
+          <button type="button" class="btn-db-primary w-100 justify-content-center py-2 mt-2" data-generate-jd>
+            <i class="bi bi-stars"></i> Generate Job Description
+          </button>
+          <p class="small text-muted text-center mt-2 mb-0">Saves a draft job in PostgreSQL. AI generation is a placeholder until the next step.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="db-card db-preview-sticky">
+      <div class="db-card-header"><h2 class="db-card-title"><i class="bi bi-eye-fill text-muted"></i> Live Preview</h2></div>
+      <div class="db-card-body">
+        <div class="db-preview-card">
+          <div class="db-preview-title-row">
+            <strong data-preview-title>Untitled role</strong>
+            <span class="db-badge db-badge-draft">Draft</span>
+          </div>
+          <div class="db-preview-list">
+            <dl>
+              <div class="pv-row"><dt>Company</dt><dd data-preview-company>{{ company_name }}</dd></div>
+              <div class="pv-row"><dt>Department</dt><dd data-preview-department>—</dd></div>
+              <div class="pv-row"><dt>Category</dt><dd data-preview-category>—</dd></div>
+              <div class="pv-row"><dt>Employment</dt><dd data-preview-employment>—</dd></div>
+              <div class="pv-row"><dt>Work mode</dt><dd data-preview-workmode>—</dd></div>
+              <div class="pv-row"><dt>Urgency</dt><dd data-preview-urgency>—</dd></div>
+              <div class="pv-row"><dt>Location</dt><dd data-preview-city>—</dd></div>
+              <div class="pv-row"><dt>Vacancies</dt><dd data-preview-hires>—</dd></div>
+              <div class="pv-row"><dt>Deadline</dt><dd data-preview-deadline>—</dd></div>
+              <div class="pv-row"><dt>Experience</dt><dd data-preview-exp>—</dd></div>
+              <div class="pv-row"><dt>Fresh graduates</dt><dd data-preview-fresh>—</dd></div>
+              <div class="pv-row"><dt>Education</dt><dd data-preview-education>—</dd></div>
+              <div class="pv-row"><dt>Salary</dt><dd data-preview-salary>—</dd></div>
+              <div class="pv-row"><dt>Skills</dt><dd data-preview-skills>—</dd></div>
+              <div class="pv-row"><dt>Tone</dt><dd data-preview-tone>—</dd></div>
+              <div class="pv-row"><dt>Shortlist (CV → interview)</dt><dd data-preview-shortlist-cv>25</dd></div>
+              <div class="pv-row"><dt>Shortlist (after interview)</dt><dd data-preview-shortlist-iv>10</dd></div>
+            </dl>
+          </div>
+        </div>
+        <div class="db-preview-note"><i class="bi bi-info-circle"></i> Preview updates as HR fills the form. The job is stored in <code>autohr_n</code> when you click Generate Job Description.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 d-none" data-create-job-result>
+  <div class="col-12">
+    <div class="db-card">
+      <div class="db-card-body db-save-result">
+        <div class="db-save-mark"><i class="bi bi-check-lg"></i></div>
+        <h3>Job saved as draft</h3>
+        <p data-create-job-success-text>Your job posting was saved to PostgreSQL.</p>
+        <button type="button" class="btn-db-primary" data-go-panel="jobs">Go to Jobs <i class="bi bi-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>

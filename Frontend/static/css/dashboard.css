@@ -214,3 +214,18 @@
   .db-topbar { padding: 0 14px; }
   .db-main-content { padding: 14px; }
 }
+
+.db-form-section { margin-bottom: 28px; padding-bottom: 22px; border-bottom: 1px solid var(--border-subtle); }
+.db-form-section:last-of-type { border-bottom: none; margin-bottom: 8px; }
+.db-section-heading { font-size: 14px; font-weight: 800; color: var(--text-main); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.db-section-heading i { color: #d97706; }
+.db-field-label { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.info-tip { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-card); background: var(--bg-surface-warm); font-size: 11px; font-weight: 700; line-height: 1; padding: 0; cursor: help; color: var(--text-muted); flex-shrink: 0; }
+.info-tip:hover { background: #fff7e6; border-color: #f5be42; color: #b45309; }
+.db-conditional { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #7c3aed; background: #f3e8ff; padding: 2px 6px; border-radius: 4px; }
+.db-checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; margin: 12px 0 16px; }
+.db-check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 0; cursor: pointer; }
+.db-check-row input { width: 16px; height: 16px; accent-color: #d97706; }
+.db-repeat-row .btn-sm { min-width: 36px; padding: 0 10px; }
+.db-preview-sticky { position: sticky; top: 88px; }
+@media (max-width: 991.98px) { .db-preview-sticky { position: static; } }

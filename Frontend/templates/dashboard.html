@@ -214,136 +214,7 @@
 
       <!-- ================= PANEL: CREATE JOB ================= -->
       <div class="db-panel" data-panel="create-job">
-        <div class="db-stepper">
-          <div class="db-step-item is-active"><span class="db-step-num">1</span><span>Job Details</span></div>
-          <div class="db-step-separator"></div>
-          <div class="db-step-item"><span class="db-step-num">2</span><span>AI Job Description</span></div>
-          <div class="db-step-separator"></div>
-          <div class="db-step-item"><span class="db-step-num">3</span><span>Publish to Boards</span></div>
-        </div>
-
-        <div class="row g-4" data-create-job-fields>
-          <div class="col-12 col-lg-7">
-            <div class="db-card">
-              <div class="db-card-header"><h2 class="db-card-title"><i class="bi bi-pencil-square text-warning"></i> Role Details</h2></div>
-              <div class="db-card-body">
-                <form class="needs-validation" novalidate data-create-job-form>
-                  <div class="db-field">
-                    <label class="db-field-label" for="job_title">Role title <span class="db-required">Required</span></label>
-                    <input type="text" class="db-input" id="job_title" style="width:100%;" required minlength="2" placeholder="Senior Full Stack Engineer" value="Senior Full Stack Engineer">
-                  </div>
-
-                  <div class="row g-3">
-                    <div class="col-6">
-                      <div class="db-field">
-                        <label class="db-field-label" for="min_experience">Min. experience (years) <span class="db-required">Required</span></label>
-                        <input type="number" class="db-input" id="min_experience" style="width:100%;" min="0" max="60" required value="4">
-                      </div>
-                    </div>
-                    <div class="col-6">
-                      <div class="db-field">
-                        <label class="db-field-label" for="max_experience">Max. experience (years) <span class="db-optional">Optional</span></label>
-                        <input type="number" class="db-input" id="max_experience" style="width:100%;" min="0" max="60" value="8">
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="row g-3">
-                    <div class="col-6">
-                      <div class="db-field">
-                        <label class="db-field-label" for="min_salary">Min. salary (PKR / month) <span class="db-optional">Optional</span></label>
-                        <input type="number" class="db-input" id="min_salary" style="width:100%;" min="0" step="1000" value="250000">
-                      </div>
-                    </div>
-                    <div class="col-6">
-                      <div class="db-field">
-                        <label class="db-field-label" for="max_salary">Max. salary (PKR / month) <span class="db-optional">Optional</span></label>
-                        <input type="number" class="db-input" id="max_salary" style="width:100%;" min="0" step="1000" value="400000">
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="row g-3">
-                    <div class="col-6">
-                      <div class="db-field">
-                        <label class="db-field-label" for="job_city">City <span class="db-required">Required</span></label>
-                        <select class="db-select" id="job_city" style="width:100%;" required>
-                          <option value="">Select a city</option>
-                          <option selected>Lahore</option><option>Karachi</option><option>Islamabad</option><option>Rawalpindi</option><option>Faisalabad</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div class="col-6">
-                      <div class="db-field">
-                        <label class="db-field-label" for="target_hires">Number of hires <span class="db-required">Required</span></label>
-                        <input type="number" class="db-input" id="target_hires" style="width:100%;" min="1" max="500" required value="2">
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="db-field">
-                    <label class="db-field-label">Required skills <span class="db-optional">Optional</span></label>
-                    <p class="db-field-hint">Press Enter after each skill.</p>
-                    <div class="db-skill-list" id="required-skill-list">
-                      <span class="db-skill-chip"><span>React</span><button type="button" aria-label="Remove">&times;</button></span>
-                      <span class="db-skill-chip"><span>Node.js</span><button type="button" aria-label="Remove">&times;</button></span>
-                    </div>
-                    <input type="text" class="db-input" id="required-skill-input" style="width:100%;" placeholder="Type a skill and press Enter">
-                    <input type="hidden" id="required_skills_hidden" value="React, Node.js">
-                  </div>
-
-                  <div class="db-field">
-                    <label class="db-field-label">Bonus skills <span class="db-optional">Optional</span></label>
-                    <div class="db-skill-list" id="bonus-skill-list">
-                      <span class="db-skill-chip"><span>AWS</span><button type="button" aria-label="Remove">&times;</button></span>
-                    </div>
-                    <input type="text" class="db-input" id="bonus-skill-input" style="width:100%;" placeholder="Type a skill and press Enter">
-                    <input type="hidden" id="bonus_skills_hidden" value="AWS">
-                  </div>
-
-                  <button type="submit" class="btn-db-primary w-100 justify-content-center py-2"><i class="bi bi-check2-circle"></i> Create Job &amp; Generate AI Description</button>
-                </form>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-12 col-lg-5">
-            <div class="db-card">
-              <div class="db-card-header"><h2 class="db-card-title"><i class="bi bi-eye-fill text-muted"></i> Live Preview</h2></div>
-              <div class="db-card-body">
-                <div class="db-preview-card">
-                  <div class="db-preview-title-row">
-                    <strong data-preview-title>Senior Full Stack Engineer</strong>
-                    <span class="db-badge db-badge-draft">Draft</span>
-                  </div>
-                  <div class="db-preview-list">
-                    <dl>
-                      <div class="pv-row"><dt>Experience</dt><dd data-preview-exp>4 – 8 years</dd></div>
-                      <div class="pv-row"><dt>Salary</dt><dd data-preview-salary>PKR 250,000 – 400,000 / month</dd></div>
-                      <div class="pv-row"><dt>City</dt><dd data-preview-city>Lahore</dd></div>
-                      <div class="pv-row"><dt>Hires needed</dt><dd data-preview-hires>2</dd></div>
-                      <div class="pv-row"><dt>Boards</dt><dd>Rozee.pk, Indeed Pakistan</dd></div>
-                    </dl>
-                  </div>
-                </div>
-                <div class="db-preview-note"><i class="bi bi-info-circle"></i> AutoHR will draft a job description from these details once you create the job. You will review and approve it before it is published.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row g-4 d-none" data-create-job-result>
-          <div class="col-12 col-lg-7">
-            <div class="db-card">
-              <div class="db-card-body db-save-result">
-                <div class="db-save-mark"><i class="bi bi-check-lg"></i></div>
-                <h3>Job saved as draft</h3>
-                <p>AutoHR is ready to generate a job description for HR review before it posts to Rozee.pk and Indeed Pakistan.</p>
-                <button type="button" class="btn-db-primary" data-go-panel="jobs">Go to Jobs <i class="bi bi-arrow-right"></i></button>
-              </div>
-            </div>
-          </div>
-        </div>
+        {% include "partials/create_job_panel.html" %}
       </div>
 
       <!-- ================= PANEL: APPLICATIONS ================= -->
@@ -534,6 +405,7 @@
 
 {% block extra_js %}
 <script src="{% static_v 'js/dashboard.js' %}"></script>
+<script src="{% static_v 'js/create_job.js' %}"></script>
 <script>
   // Resolve the chart bars' final height (computed server-side via widthratio)
   // after dashboard.js wires up the panel-activation animation.

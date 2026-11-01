@@ -1,6 +1,6 @@
 # AutoHR
 
-A Pakistan-localized hiring workspace for HR teams. The Django frontend renders the landing page, account screens, and HR dashboard with sample data. PostgreSQL now holds the hiring schema for the next phase. The screens do not read or write that database yet.
+A Pakistan-localized hiring workspace for HR teams. The Django frontend renders the landing page, account screens, and HR dashboard. **Create Job** saves full job intake records to PostgreSQL (`autohr_n`). Other dashboard sections still use demo data in `portal/data.py`.
 
 ## What is finished
 
@@ -12,8 +12,12 @@ A Pakistan-localized hiring workspace for HR teams. The Django frontend renders 
 | Pakistan-specific sample data | Done |
 | Visual system (type, color, layout, motion) | Done |
 | Local run setup, secret-file ignore rules, and `.env` loading | Done |
-| PostgreSQL schema (`autohr_n`, 17 tables) | Done, not wired to the frontend |
-| Real accounts, job-board posting, and AI calls | Not started |
+| PostgreSQL schema (`autohr_n`) | Done |
+| **Create Job** — real intake fields, server validation, save to DB | Done |
+| **Jobs** list — reads saved postings from the DB | Done (falls back to demo rows if none exist) |
+| Dashboard panels other than Create Job / Jobs | Demo data only |
+| Real sign-in / registration against the DB | Not started |
+| AI job-description generation and job-board posting | Not started (Create Job saves a draft only) |
 
 ## Pages
 
@@ -52,8 +56,8 @@ The sidebar swaps panels on the same screen. The header has search, **New Job**,
 | Section | What it shows |
 | --- | --- |
 | Dashboard | Four KPI cards, the Phase 1–4 funnel, a six-month applications chart, and recent activity |
-| Jobs | Six sample roles with board, PKR salary, hire count, applicant count, and Live / Draft / Closed status |
-| Create Job | Role form with a live preview, skill chips, and a demo “saved as draft” result |
+| Jobs | Roles from PostgreSQL for your company when present; otherwise six sample roles from demo data |
+| Create Job | Real job-posting intake (sections A–G), validation, then save to PostgreSQL — see below |
 | Applications | Six candidates in a split view, with overview and score-breakdown tabs |
 | Pipeline | Kanban columns for Posted, Screened, Interviewed, and Decided |
 | Interviews | Scheduled and completed 3-stage AI video interviews |
@@ -62,9 +66,31 @@ The sidebar swaps panels on the same screen. The header has search, **New Job**,
 
 Sample company: **Northbridge Technologies**, Lahore. Signed-in HR: **Ayesha Khan**, HR Manager.
 
+### Create Job (connected to PostgreSQL)
+
+The old short demo form (title, salary, a few skills) is replaced with the **full intake** HR needs before a role can move through the pipeline. Fields are grouped on the page as **A, B, C, D, E, and G** (same structure as the product spec).
+
+**A — Basic job information:** job title, department, job category, employment type, work mode, city, number of vacancies, job description, company name (must match the registered company in the DB), posting date, application deadline, urgency level.
+
+**B — Experience and education:** minimum / maximum experience (years), fresh-graduate eligibility, minimum education level.
+
+**C — Technical skills:** required skills (chip input); programming languages when the category is software, data, AI/ML, or cybersecurity; optional frameworks, tools, cloud platforms, and technical knowledge text.
+
+**D — Salary and benefits:** optional min/max salary in PKR, required salary period, negotiable flag, and benefit toggles/text (bonus, insurance, leave, relocation, equipment, and so on).
+
+**E — Responsibilities:** repeatable key responsibilities (required) and optional daily tasks — stored in `job_responsibilities`.
+
+**G — Shortlisting and tone:** job post tone (with custom instructions when tone is Custom), shortlist count after CV screening (20–30, default 25), shortlist count after interview.
+
+Each label has an **ⓘ tooltip**. The right column is a **live preview** (browser-only until you save). **Generate Job Description** does **not** call AI yet; it **validates the form on the server**, then inserts a **draft** row in `job_postings` and related rows in `job_responsibilities`. Invalid input returns errors in the UI without writing to the database.
+
+**Flow:** fill form → click **Generate Job Description** → `POST /dashboard/jobs/create/` → Django `JobIntakeForm` validation → `create_job_posting()` → PostgreSQL. Company context comes from `ensure_demo_hr()` (creates **Northbridge Technologies** and **Ayesha Khan** in the DB on first use if missing).
+
+Implementation: `Frontend/portal/forms.py`, `services.py`, `models.py`, `templates/partials/create_job_panel.html`, `static/js/create_job.js`.
+
 ## Sample data
 
-All dashboard numbers live in `Frontend/portal/data.py`. They are not loaded from a database.
+Most dashboard numbers live in `Frontend/portal/data.py`. The **Jobs** table and **Create Job** flow read and write `job_postings` and `job_responsibilities` in PostgreSQL when `Frontend/.env` is configured.
 
 The set is written for a Pakistani HR audience:
 
@@ -90,14 +116,14 @@ AutoHR-N/
     ├── requirements.txt
     ├── .env.example
     ├── autohr_frontend/     # settings, URLs, cache middleware
-    ├── portal/              # views and demo data
-    ├── templates/           # landing, auth, dashboard, base
+    ├── portal/              # views, forms, models, services, demo data
+    ├── templates/           # landing, auth, dashboard, create_job partial
     └── static/
         ├── css/             # theme.css, dashboard.css
-        └── js/              # main.js, dashboard.js
+        └── js/              # main.js, dashboard.js, create_job.js
 ```
 
-`portal` is the only installed app. Django static files are enabled. `DATABASES` in Django settings is still empty, so the site does not open PostgreSQL.
+`portal` is the only app. Django is configured to use PostgreSQL via `DATABASES` in `Frontend/autohr_frontend/settings.py` and `POSTGRES_*` in `Frontend/.env`.
 
 ## Run it locally
 
@@ -139,7 +165,7 @@ Stylesheets and scripts are linked with a file-modification version, and develop
 
 ## Database
 
-PostgreSQL 18 is already created on this machine. You do not need to run `schema.sql` again.
+PostgreSQL holds database **`autohr_n`**. Re-run `db/schema.sql` only after you change the schema (drop/recreate or migrate as you prefer).
 
 | Item | Value |
 | --- | --- |
@@ -153,7 +179,7 @@ PostgreSQL 18 is already created on this machine. You do not need to run `schema
 
 The login `autohr` can change the schema (add or alter columns). The password is only in `Frontend/.env`, which git ignores.
 
-The database has 17 empty tables for the hiring pipeline: companies, HR users, jobs, board posts, candidates, applications, parsed CVs, CV scores, invitations, schedules, consent, interviews, the three stages, question scores, rankings, and email notifications. Full columns and relationships are in `db_architecture.md`.
+The schema includes **`job_postings`** (full intake columns), **`job_responsibilities`**, companies, users, board posts, candidates, applications, interviews, rankings, notifications, and related tables. **`job_postings`** and **`job_responsibilities`** are written by **Create Job**; other tables are for later pipeline steps. Details are in `db_architecture.md`.
 
 `Frontend/.env.example` lists the variable names without the real password.
 
@@ -176,9 +202,14 @@ copy .env.example .env
 
 ```text
 DJANGO_SECRET_KEY=your-long-random-string
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=autohr
+POSTGRES_PASSWORD=your-local-password
+POSTGRES_DB=autohr_n
 ```
 
-`Frontend/autohr_frontend/settings.py` reads `Frontend/.env` without overriding variables already set in the shell. If `DJANGO_SECRET_KEY` is missing, the app uses a labeled demo key so `runserver` still starts. Do not put a production key in `settings.py`. Django does not use `POSTGRES_PASSWORD` yet.
+`Frontend/autohr_frontend/settings.py` reads `Frontend/.env` without overriding variables already set in the shell. If `DJANGO_SECRET_KEY` is missing, the app uses a labeled demo key so `runserver` still starts. **Create Job requires a working Postgres connection** (`POSTGRES_*` and database `autohr_n` with schema applied).
 
 ## Front-end notes
 
@@ -186,14 +217,18 @@ DJANGO_SECRET_KEY=your-long-random-string
 - Plus Jakarta Sans loads from Google Fonts
 - Scroll reveals use AOS
 - Shared behavior (tooltips, counters, password visibility, auth toggle, demo submit) is in `static/js/main.js`
-- Dashboard behavior (panel switching, sidebar, bar animation, candidate selection, skill chips, job preview) is in `static/js/dashboard.js`
+- Dashboard behavior (panel switching, sidebar, bar animation, candidate selection) is in `static/js/dashboard.js`
+- Create Job behavior (skill chips, repeatables, live preview, validation POST) is in `static/js/create_job.js`
 - Colors, type, and landing styles are in `static/css/theme.css`
 - Dashboard layout is in `static/css/dashboard.css`
 
 The header actions (New Job, notifications, and the HR chip) stay on one row. Dashboard sections are buttons, not separate URLs, so the address stays `/dashboard/` while you move around the workspace.
 
-## Not connected yet
+## What is not connected yet
 
-The frontend is not connected to PostgreSQL. Landing, sign-in, registration, and the dashboard still render the sample data in `Frontend/portal/data.py`. Nothing typed into those forms is saved in `autohr_n`.
+- **Sign-in and registration** — demo UI only; no users are created or authenticated against PostgreSQL.
+- **Most dashboard panels** (overview KPIs, applications, pipeline, interviews, reports, account) — still driven by `Frontend/portal/data.py`.
+- **AI job description** — after validation and DB save, the next pipeline step (LLM draft) is not implemented.
+- **Job boards** — no publish/sync to Rozee.pk, Indeed, or LinkedIn yet.
 
-`db/schema.sql` and `db_architecture.md` are the current architecture, not a frozen contract. Tables and columns can be added or changed later when a screen needs a field that is not there yet. Wiring Django to this database is a later step.
+`db/schema.sql` and `db_architecture.md` describe the current database; extend them when new screens need more tables or columns.

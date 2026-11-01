@@ -139,7 +139,7 @@ Relations: belongs to one company. Creates jobs through `job_postings.created_by
 
 ### `job_postings`
 
-Step 1 and step 2 of the pipeline: the role, the salary band, the skills, and the approved job description.
+Step 1 intake: everything HR enters on **Create Job** (sections A, B, C, D, G), plus workflow fields for AI JD and approval.
 
 | Column | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -147,29 +147,72 @@ Step 1 and step 2 of the pipeline: the role, the salary band, the skills, and th
 | `company_id` | UUID | yes | | FK `companies.id`, delete restricted |
 | `created_by` | UUID | yes | | FK `users.id`, delete restricted |
 | `approved_by` | UUID | | | FK `users.id`, set null if that user is removed |
+| **A — Basic** | | | | |
 | `title` | VARCHAR(200) | yes | | |
-| `department` | VARCHAR(120) | | | |
-| `city` | VARCHAR(80) | | | |
-| `min_experience_years` | INT | yes | `0` | Must be `>= 0` |
-| `max_experience_years` | INT | | | Null, or `>= min_experience_years` |
-| `min_salary` | NUMERIC(12,2) | | | Null, or `>= 0`. Monthly amount |
-| `max_salary` | NUMERIC(12,2) | | | Null, or `>= min_salary` |
-| `currency` | CHAR(3) | yes | `PKR` | |
+| `department` | VARCHAR(120) | yes | | |
+| `job_category` | VARCHAR(80) | yes | | Drives conditional programming-language rules |
+| `employment_type` | VARCHAR(40) | yes | | |
+| `work_mode` | VARCHAR(40) | yes | | |
+| `urgency_level` | VARCHAR(20) | yes | `normal` | |
+| `city` | VARCHAR(80) | yes | | |
 | `target_hires` | INT | yes | `1` | Must be `> 0` |
-| `shortlist_multiplier` | NUMERIC(4,2) | yes | `3.0` | Must be `>= 1`. Shortlist size is about `target_hires * multiplier` |
+| `job_description` | TEXT | yes | | HR baseline text before AI rewrite |
+| `posting_date` | DATE | yes | | |
+| `application_deadline` | DATE | yes | | Must be `>= posting_date` |
+| **B — Experience / education** | | | | |
+| `min_experience_years` | INT | yes | `0` | |
+| `max_experience_years` | INT | | | Null or `>= min` |
+| `fresh_graduate_eligible` | BOOLEAN | yes | `false` | |
+| `min_education_level` | VARCHAR(80) | yes | | |
+| **C — Technical** | | | | |
 | `required_skills` | TEXT[] | yes | `{}` | |
-| `bonus_skills` | TEXT[] | yes | `{}` | |
-| `ai_jd_prompt_payload` | JSONB | | | Inputs sent to the model |
-| `ai_generated_jd_draft` | TEXT | | | Draft before HR approval |
-| `approved_jd_content` | TEXT | | | Description HR approved |
+| `programming_languages` | TEXT[] | yes | `{}` | Required in app logic for tech categories |
+| `frameworks` | TEXT[] | yes | `{}` | |
+| `tools` | TEXT[] | yes | `{}` | |
+| `cloud_platforms` | TEXT[] | yes | `{}` | |
+| `technical_knowledge` | TEXT | | | |
+| **D — Salary / benefits** | | | | |
+| `min_salary` / `max_salary` | NUMERIC(12,2) | | | PKR; optional band |
+| `currency` | CHAR(3) | yes | `PKR` | |
+| `salary_period` | VARCHAR(20) | yes | `per_month` | |
+| `salary_negotiable` | BOOLEAN | yes | `false` | |
+| `performance_bonus` | BOOLEAN | yes | `false` | |
+| `commission_incentives` | BOOLEAN | yes | `false` | |
+| `health_insurance` | BOOLEAN | yes | `false` | |
+| `paid_leave_policy` | TEXT | | | |
+| `provident_fund` | BOOLEAN | yes | `false` | |
+| `other_benefits` | TEXT | | | |
+| `relocation_assistance` | BOOLEAN | yes | `false` | |
+| `equipment_provided` | BOOLEAN | yes | `false` | |
+| **G — Shortlist / tone** | | | | |
+| `job_post_tone` | VARCHAR(60) | yes | | |
+| `custom_tone_instructions` | TEXT | | | When tone is `custom` |
+| `shortlist_after_cv_count` | INT | yes | `25` | Check: 20–30 |
+| `shortlist_after_interview_count` | INT | yes | `10` | Check: `>= 1` |
+| **Workflow** | | | | |
+| `ai_jd_prompt_payload` | JSONB | | | Snapshot for AI step |
+| `ai_generated_jd_draft` | TEXT | | | |
+| `approved_jd_content` | TEXT | | | |
 | `status` | `job_status_enum` | yes | `draft` | |
 | `approved_at` | TIMESTAMPTZ | | | |
+| `created_at` / `updated_at` | TIMESTAMPTZ | yes | now | `updated_at` trigger |
+
+Trigger `enforce_job_company`: `company_id` must match the creating user's company; `approved_by` must belong to the same company when set.
+
+Relations: owned by one company; created by one user; has many `job_responsibilities`, `job_board_postings`, `applications`, and `candidate_final_rankings`.
+
+### `job_responsibilities`
+
+Section **E** — repeatable key responsibilities and optional daily tasks (normalized rows).
+
+| Column | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | UUID | yes | random UUID | Primary key |
+| `job_posting_id` | UUID | yes | | FK `job_postings.id`, cascade delete |
+| `kind` | `job_responsibility_kind_enum` | yes | | `key_responsibility` or `daily_task` |
+| `sort_order` | INT | yes | `0` | Display order |
+| `body` | TEXT | yes | | One bullet per row |
 | `created_at` | TIMESTAMPTZ | yes | now | |
-| `updated_at` | TIMESTAMPTZ | yes | now | Trigger on update |
-
-Trigger `enforce_job_company`: `company_id` must be the creating user's company. If `approved_by` is set, that user must belong to the same company.
-
-Relations: owned by one company; created by one user; optionally approved by one user. Has many `job_board_postings`, `applications`, and `candidate_final_rankings`.
 
 ### `job_board_postings`
 

@@ -7,4 +7,5 @@ urlpatterns = [
     path("login/", views.auth_page, {"mode": "signin"}, name="login"),
     path("register/", views.auth_page, {"mode": "signup"}, name="register"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("dashboard/jobs/create/", views.create_job_post, name="create_job_post"),
 ]

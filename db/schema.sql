@@ -103,6 +103,11 @@ CREATE TYPE notification_status_enum AS ENUM (
     'failed'
 );
 
+CREATE TYPE job_responsibility_kind_enum AS ENUM (
+    'key_responsibility',
+    'daily_task'
+);
+
 -- ---------------------------------------------------------------------------
 -- updated_at
 -- ---------------------------------------------------------------------------
@@ -180,18 +185,56 @@ CREATE TABLE job_postings (
     company_id UUID NOT NULL REFERENCES companies (id) ON DELETE RESTRICT,
     created_by UUID NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
     approved_by UUID REFERENCES users (id) ON DELETE SET NULL,
+
+    -- A. Basic job information
     title VARCHAR(200) NOT NULL,
-    department VARCHAR(120),
-    city VARCHAR(80),
+    department VARCHAR(120) NOT NULL,
+    job_category VARCHAR(80) NOT NULL,
+    employment_type VARCHAR(40) NOT NULL,
+    work_mode VARCHAR(40) NOT NULL,
+    urgency_level VARCHAR(20) NOT NULL DEFAULT 'normal',
+    city VARCHAR(80) NOT NULL,
+    target_hires INT NOT NULL DEFAULT 1,
+    job_description TEXT NOT NULL,
+    posting_date DATE NOT NULL,
+    application_deadline DATE NOT NULL,
+
+    -- B. Experience and education
     min_experience_years INT NOT NULL DEFAULT 0,
     max_experience_years INT,
+    fresh_graduate_eligible BOOLEAN NOT NULL DEFAULT FALSE,
+    min_education_level VARCHAR(80) NOT NULL,
+
+    -- C. Technical skills and requirements
+    required_skills TEXT[] NOT NULL DEFAULT '{}',
+    programming_languages TEXT[] NOT NULL DEFAULT '{}',
+    frameworks TEXT[] NOT NULL DEFAULT '{}',
+    tools TEXT[] NOT NULL DEFAULT '{}',
+    cloud_platforms TEXT[] NOT NULL DEFAULT '{}',
+    technical_knowledge TEXT,
+
+    -- D. Salary and benefits
     min_salary NUMERIC(12, 2),
     max_salary NUMERIC(12, 2),
     currency CHAR(3) NOT NULL DEFAULT 'PKR',
-    target_hires INT NOT NULL DEFAULT 1,
-    shortlist_multiplier NUMERIC(4, 2) NOT NULL DEFAULT 3.0,
-    required_skills TEXT[] NOT NULL DEFAULT '{}',
-    bonus_skills TEXT[] NOT NULL DEFAULT '{}',
+    salary_period VARCHAR(20) NOT NULL DEFAULT 'per_month',
+    salary_negotiable BOOLEAN NOT NULL DEFAULT FALSE,
+    performance_bonus BOOLEAN NOT NULL DEFAULT FALSE,
+    commission_incentives BOOLEAN NOT NULL DEFAULT FALSE,
+    health_insurance BOOLEAN NOT NULL DEFAULT FALSE,
+    paid_leave_policy TEXT,
+    provident_fund BOOLEAN NOT NULL DEFAULT FALSE,
+    other_benefits TEXT,
+    relocation_assistance BOOLEAN NOT NULL DEFAULT FALSE,
+    equipment_provided BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- G. Shortlisting and writing style
+    job_post_tone VARCHAR(60) NOT NULL,
+    custom_tone_instructions TEXT,
+    shortlist_after_cv_count INT NOT NULL DEFAULT 25,
+    shortlist_after_interview_count INT NOT NULL DEFAULT 10,
+
+    -- AI / workflow (later steps)
     ai_jd_prompt_payload JSONB,
     ai_generated_jd_draft TEXT,
     approved_jd_content TEXT,
@@ -199,6 +242,7 @@ CREATE TABLE job_postings (
     approved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     CONSTRAINT ck_job_min_experience CHECK (min_experience_years >= 0),
     CONSTRAINT ck_job_max_experience CHECK (
         max_experience_years IS NULL OR max_experience_years >= min_experience_years
@@ -208,8 +252,21 @@ CREATE TABLE job_postings (
         max_salary IS NULL OR min_salary IS NULL OR max_salary >= min_salary
     ),
     CONSTRAINT ck_job_target_hires CHECK (target_hires > 0),
-    CONSTRAINT ck_job_shortlist_multiplier CHECK (shortlist_multiplier >= 1.0)
+    CONSTRAINT ck_job_deadline CHECK (application_deadline >= posting_date),
+    CONSTRAINT ck_shortlist_cv CHECK (shortlist_after_cv_count BETWEEN 20 AND 30),
+    CONSTRAINT ck_shortlist_interview CHECK (shortlist_after_interview_count >= 1)
 );
+
+CREATE TABLE job_responsibilities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_posting_id UUID NOT NULL REFERENCES job_postings (id) ON DELETE CASCADE,
+    kind job_responsibility_kind_enum NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    body TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_job_responsibilities_job ON job_responsibilities (job_posting_id, kind, sort_order);
 
 CREATE INDEX idx_job_postings_company_id ON job_postings (company_id);
 CREATE INDEX idx_job_postings_status ON job_postings (status);
