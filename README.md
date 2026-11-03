@@ -19,6 +19,8 @@ A Pakistan-localized hiring workspace for HR teams. The Django frontend renders 
 
 **You are here:** finish step **4** (Google Form + link), then job boards.
 
+**Next major track:** real **signup / login / profile completion** before first job — full field list, integrations (Google Forms, Drive, Meet, email, LinkedIn simple post, job boards), and DB plan are in **[docs/auth_onboarding_integrations.md](docs/auth_onboarding_integrations.md)**.
+
 ## What is finished
 
 | Area | Status |
@@ -33,7 +35,8 @@ A Pakistan-localized hiring workspace for HR teams. The Django frontend renders 
 | **Create Job** — real intake fields, server validation, save to DB | Done |
 | **Jobs** list — reads saved postings from the DB | Done (falls back to demo rows if none exist) |
 | Dashboard panels other than Create Job / Jobs | Demo data only |
-| Real sign-in / registration against the DB | Not started |
+| Real sign-in / registration against the DB | Not started — spec in `docs/auth_onboarding_integrations.md` |
+| Profile wizard (integrations before first job) | Not started — same spec |
 | **Step 2 — AI job description** (Groq, formatted preview, rectangle edit box) | Done |
 | **Step 2 — Apply Here:** line in AI output (blank for future form URL) | Done |
 | **Post Create Google Form** — save finalized JD to DB | Done (form URL not created yet) |
@@ -153,6 +156,8 @@ The set is written for a Pakistani HR audience:
 AutoHR-N/
 ├── README.md
 ├── db_architecture.md       # every table, column, and relationship
+├── docs/
+│   └── auth_onboarding_integrations.md   # signup, login, profile + API credentials spec
 ├── .gitignore
 ├── db/
 │   └── schema.sql           # the script already applied to PostgreSQL

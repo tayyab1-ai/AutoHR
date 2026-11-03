@@ -91,7 +91,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Demo-only submit handler: validates with Bootstrap styles, then
   // shows a success banner and redirects to the dashboard preview.
-  document.querySelectorAll("[data-demo-auth-form]").forEach(function (form) {
+  document.querySelectorAll("[data-demo-auth-form]:not([data-real-auth-form])").forEach(function (form) {
     form.addEventListener("submit", function (event) {
       event.preventDefault();
       event.stopPropagation();
