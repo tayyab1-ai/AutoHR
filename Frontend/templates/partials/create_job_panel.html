@@ -16,7 +16,16 @@
       <div class="db-card-body">
         <div class="alert alert-danger py-2 px-3 small d-none" data-create-job-errors role="alert"></div>
 
-        <form class="needs-validation" novalidate data-create-job-form action="{% url 'create_job_post' %}" method="post">
+        <form
+          class="needs-validation"
+          novalidate
+          data-create-job-form
+          action="{% url 'create_job_post' %}"
+          method="post"
+          data-job-url-generate="{% url 'generate_job_jd' job_id='00000000-0000-0000-0000-000000000001' %}"
+          data-job-url-prepare-form="{% url 'prepare_google_form' job_id='00000000-0000-0000-0000-000000000001' %}"
+          data-job-url-id-placeholder="00000000-0000-0000-0000-000000000001"
+        >
           {% csrf_token %}
 
           <section class="db-form-section">

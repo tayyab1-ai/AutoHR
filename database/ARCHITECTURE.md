@@ -2,7 +2,7 @@
 
 PostgreSQL database **`autohr_n`** on `localhost:5432`. It follows the hiring schema in `C:\Users\A\Downloads\AutoHR` and adds the structural fixes listed below. The database is empty: tables, keys, checks, and indexes only. No demo rows were inserted.
 
-The script that was applied is [`db/schema.sql`](db/schema.sql). The existing database `autohr_db` was not changed.
+The script that was applied is [`schema.sql`](schema.sql). The existing database `autohr_db` was not changed.
 
 Database timezone: `Asia/Karachi`.
 
@@ -512,4 +512,4 @@ Unique indexes created by the unique constraints are in addition to this list.
 | 9 | Each answer is scored on five dimensions, then averaged | `interview_questions_answers`, `interview_evaluations` |
 | 10 | CV score and interview score become a rank and a verdict | `candidate_final_rankings` |
 
-The Django screens in this repository still read the static demo file `Frontend/portal/data.py`. They are not connected to `autohr_n` yet.
+Some dashboard panels still read demo data from `backend/portal/data.py`; Create Job and auth use `autohr_n` via Django models.

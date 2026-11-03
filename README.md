@@ -121,7 +121,7 @@ Each label has an **ⓘ tooltip**. The right column is a **live preview** (brows
 
 1. Server validates all intake fields (`JobIntakeForm`). Errors stay on step 1 — nothing is saved until validation passes.
 2. Valid data is written to **`job_postings`** and **`job_responsibilities`** (status `draft`).
-3. **Groq** runs on the server in the same request (`GROQ_API_KEY`, `GROQ_MODEL` in `Frontend/.env`; default model in `.env.example` is `openai/gpt-oss-120b`). Prompt + normalization live in **`portal/groq_jd.py`**.
+3. **Groq** runs on the server in the same request (`GROQ_API_KEY`, `GROQ_MODEL` in repo-root `.env`; default model in `.env.example` is `openai/gpt-oss-120b`). Prompt + normalization live in **`backend/portal/groq_jd.py`**.
 4. The UI switches to **step 2**. The draft is stored in **`ai_generated_jd_draft`** and rendered with headings, bullets, and paragraphs (not raw `#` / `-` markdown). The closing section includes **`Apply Here: `** with a blank space for the Google Form URL in the next build step.
 5. HR can **Edit description** (full-width rectangular textarea) or return to **Preview formatted**.
 6. **Retry AI generation** calls `POST /dashboard/jobs/<id>/generate-jd/` if the first AI call failed.
@@ -134,11 +134,11 @@ Each label has an **ⓘ tooltip**. The right column is a **live preview** (brows
 
 **API routes:** `POST /dashboard/jobs/create/`, `POST /dashboard/jobs/<uuid>/generate-jd/`, `POST /dashboard/jobs/<uuid>/prepare-google-form/`.
 
-**Code:** `Frontend/portal/forms.py`, `services.py`, `groq_jd.py`, `models.py`, `dev_actor.py`, `templates/partials/create_job_panel.html`, `static/js/create_job.js`, `static/css/dashboard.css` (JD preview/edit styles).
+**Code:** `backend/portal/forms.py`, `services.py`, `groq_jd.py`, `models.py`, `dev_actor.py`, `frontend/templates/partials/create_job_panel.html`, `frontend/static/js/create_job.js`, `frontend/static/css/dashboard.css` (JD preview/edit styles).
 
 ## Sample data
 
-Most dashboard numbers live in `Frontend/portal/data.py`. The **Jobs** table and **Create Job** flow read and write `job_postings` and `job_responsibilities` in PostgreSQL when `Frontend/.env` is configured.
+Most dashboard numbers live in `backend/portal/data.py`. The **Jobs** table and **Create Job** flow read and write `job_postings` and `job_responsibilities` in PostgreSQL when repo-root `.env` is configured.
 
 The set is written for a Pakistani HR audience:
 
@@ -155,42 +155,49 @@ The set is written for a Pakistani HR audience:
 ```text
 AutoHR-N/
 ├── README.md
-├── db_architecture.md       # every table, column, and relationship
-├── docs/
-│   └── auth_onboarding_integrations.md   # signup, login, profile + API credentials spec
+├── .env.example              # copy to .env (repo root; gitignored)
 ├── .gitignore
-├── db/
-│   └── schema.sql           # the script already applied to PostgreSQL
-└── Frontend/
-    ├── manage.py
-    ├── requirements.txt
-    ├── .env.example
-    ├── autohr_frontend/     # settings, URLs, cache middleware
-    ├── portal/              # views, forms, models, services, groq_jd.py, demo data
-    ├── templates/           # landing, auth, dashboard, create_job partial
-    └── static/
-        ├── css/             # theme.css, dashboard.css
-        └── js/              # main.js, dashboard.js, create_job.js
+├── backend/                  # Django API + business logic
+│   ├── manage.py
+│   ├── requirements.txt
+│   ├── config/               # settings, URLs, WSGI, middleware
+│   └── portal/               # app: views, auth, models, Groq, services
+├── frontend/                 # UI templates + static (CSS/JS); may show as Frontend on Windows
+│   ├── templates/
+│   └── static/
+├── database/
+│   ├── schema.sql            # PostgreSQL DDL for autohr_n
+│   └── ARCHITECTURE.md       # tables, columns, relationships
+├── docs/
+│   └── auth_onboarding_integrations.md
+└── scripts/
+    └── run-dev.ps1           # optional dev server helper
 ```
 
-`portal` is the only app. Django is configured to use PostgreSQL via `DATABASES` in `Frontend/autohr_frontend/settings.py` and `POSTGRES_*` in `Frontend/.env`.
+`portal` is the only Django app. Settings live in `backend/config/settings.py`. Secrets and `POSTGRES_*` / `GROQ_*` / email vars are in **`.env` at the repo root**.
 
 ## Run it locally
 
-Requirements: Python 3.11 or newer, PostgreSQL with **`autohr_n`** schema applied, a valid **Groq API key**, and the virtual environment at `Frontend/.venv` (`pip install -r requirements.txt` installs Django, psycopg, and **groq**).
+Requirements: Python 3.11 or newer, PostgreSQL with **`autohr_n`** schema applied, a valid **Groq API key**, and the virtual environment at `backend/.venv` (`pip install -r requirements.txt` installs Django, psycopg, and **groq**).
 
 From PowerShell:
 
 ```powershell
-cd Frontend
+cd backend
 .\.venv\Scripts\Activate.ps1
 python manage.py runserver
+```
+
+Or from the repo root:
+
+```powershell
+.\scripts\run-dev.ps1
 ```
 
 If activation is blocked, start the app with the environment’s Python directly:
 
 ```powershell
-cd Frontend
+cd backend
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
@@ -204,10 +211,11 @@ Leave that window open. Stopping the server makes every link in the browser fail
 On a fresh machine, create the environment first:
 
 ```powershell
-cd Frontend
+cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+python manage.py migrate
 python manage.py runserver
 ```
 
@@ -215,7 +223,7 @@ Stylesheets and scripts are linked with a file-modification version, and develop
 
 ## Database
 
-PostgreSQL holds database **`autohr_n`**. Re-run `db/schema.sql` only after you change the schema (drop/recreate or migrate as you prefer).
+PostgreSQL holds database **`autohr_n`**. Re-run `database/schema.sql` only after you change the schema (drop/recreate or migrate as you prefer).
 
 | Item | Value |
 | --- | --- |
@@ -223,15 +231,15 @@ PostgreSQL holds database **`autohr_n`**. Re-run `db/schema.sql` only after you 
 | Port | `5432` |
 | Database | `autohr_n` |
 | Login | `autohr` |
-| Password | `Frontend/.env` (`POSTGRES_PASSWORD`) |
-| Schema script | `db/schema.sql` |
-| Table guide | `db_architecture.md` |
+| Password | repo-root `.env` (`POSTGRES_PASSWORD`) |
+| Schema script | `database/schema.sql` |
+| Table guide | `database/ARCHITECTURE.md` |
 
-The login `autohr` can change the schema (add or alter columns). The password is only in `Frontend/.env`, which git ignores.
+The login `autohr` can change the schema (add or alter columns). The password is only in `.env`, which git ignores.
 
-The schema includes **`job_postings`** (full intake columns), **`job_responsibilities`**, companies, users, board posts, candidates, applications, interviews, rankings, notifications, and related tables. **`job_postings`** and **`job_responsibilities`** are written by **Create Job**; other tables are for later pipeline steps. Details are in `db_architecture.md`.
+The schema includes **`job_postings`** (full intake columns), **`job_responsibilities`**, companies, users, board posts, candidates, applications, interviews, rankings, notifications, and related tables. **`job_postings`** and **`job_responsibilities`** are written by **Create Job**; other tables are for later pipeline steps. Details are in `database/ARCHITECTURE.md`.
 
-`Frontend/.env.example` lists variable names (Postgres + Groq); copy to `Frontend/.env` and fill in real secrets (never commit `.env`).
+`.env.example` at the repo root lists variable names (Postgres + Groq + email); copy to `.env` and fill in real secrets (never commit `.env`).
 
 ## Secrets
 
@@ -246,7 +254,6 @@ The schema includes **`job_postings`** (full intake columns), **`job_responsibil
 Copy the example and put a real key in the ignored file:
 
 ```powershell
-cd Frontend
 copy .env.example .env
 ```
 
@@ -261,7 +268,7 @@ GROQ_API_KEY=your-groq-api-key
 GROQ_MODEL=openai/gpt-oss-120b
 ```
 
-`Frontend/autohr_frontend/settings.py` loads `Frontend/.env` with **`override=True`** so values in the file replace stale `GROQ_API_KEY` / `POSTGRES_*` exports in the shell or Windows environment. Restart **`runserver`** after changing `.env`.
+`backend/config/settings.py` loads the repo-root `.env` with **`override=True`** so values in the file replace stale `GROQ_API_KEY` / `POSTGRES_*` exports in the shell or Windows environment. Restart **`runserver`** after changing `.env`.
 
 If `DJANGO_SECRET_KEY` is missing, the app uses a labeled demo key so `runserver` still starts. **Create Job** needs working **Postgres** and **Groq** configuration.
 
@@ -281,8 +288,8 @@ The header actions (New Job, notifications, and the HR chip) stay on one row. Da
 ## What is not connected yet
 
 - **Sign-in and registration** — demo UI only; no session or auth tied to job APIs.
-- **Most dashboard panels** (overview KPIs, applications, pipeline, interviews, reports, account) — still driven by `Frontend/portal/data.py`.
+- **Most dashboard panels** (overview KPIs, applications, pipeline, interviews, reports, account) — still driven by `backend/portal/data.py`.
 - **Google Form** — next step: create the form, paste the URL after **`Apply Here:`** in the stored description, and wire **Post Create Google Form** to that automation.
 - **Job boards** — no publish/sync to Rozee.pk, Indeed, or LinkedIn yet.
 
-`db/schema.sql` and `db_architecture.md` describe the current database; extend them when new screens need more tables or columns.
+`database/schema.sql` and `database/ARCHITECTURE.md` describe the current database; extend them when new screens need more tables or columns.

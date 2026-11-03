@@ -1,5 +1,5 @@
 -- AutoHR-N PostgreSQL schema
--- Based on C:\Users\A\Downloads\AutoHR, with the structural fixes described in db_architecture.md.
+-- Based on C:\Users\A\Downloads\AutoHR, with the structural fixes described in database/ARCHITECTURE.md.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS citext;

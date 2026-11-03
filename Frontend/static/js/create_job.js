@@ -25,6 +25,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
   var currentJobId = null;
   var aiDraftSnapshot = "";
+  var jobUrlPlaceholder =
+    form.getAttribute("data-job-url-id-placeholder") || "00000000-0000-0000-0000-000000000001";
+
+  function jobApiUrl(kind, jobId) {
+    var template =
+      kind === "prepare"
+        ? form.getAttribute("data-job-url-prepare-form")
+        : form.getAttribute("data-job-url-generate");
+    if (!template) {
+      return (
+        "/dashboard/jobs/" +
+        jobId +
+        (kind === "prepare" ? "/prepare-google-form/" : "/generate-jd/")
+      );
+    }
+    return template.split(jobUrlPlaceholder).join(jobId);
+  }
 
   function getCsrfToken() {
     var input = form.querySelector('input[name="csrfmiddlewaretoken"]');
@@ -404,7 +421,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function fetchGenerateJd(jobId) {
-    return fetch("/dashboard/jobs/" + jobId + "/generate-jd/", {
+    return fetch(jobApiUrl("generate", jobId), {
       method: "POST",
       headers: {
         "X-CSRFToken": getCsrfToken(),
@@ -496,7 +513,7 @@ document.addEventListener("DOMContentLoaded", function () {
       var body = new FormData();
       body.append("finalized_jd", text.trim());
 
-      fetch("/dashboard/jobs/" + currentJobId + "/prepare-google-form/", {
+      fetch(jobApiUrl("prepare", currentJobId), {
         method: "POST",
         headers: {
           "X-CSRFToken": getCsrfToken(),

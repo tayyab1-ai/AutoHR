@@ -400,9 +400,9 @@ accepted_terms_version VARCHAR(20)
 
 | Area | Path |
 | --- | --- |
-| Auth UI | `Frontend/templates/auth.html` |
-| Demo JS | `Frontend/static/js/main.js` (`data-demo-auth-form`) |
-| Company/user schema | `db/schema.sql`, `db_architecture.md` |
-| Job create (to gate) | `Frontend/portal/views.py`, `dev_actor.py` |
+| Auth UI | `frontend/templates/auth.html` |
+| Demo JS | `frontend/static/js/main.js` (`data-demo-auth-form`) |
+| Company/user schema | `database/schema.sql`, `database/ARCHITECTURE.md` |
+| Job create (to gate) | `backend/portal/views.py`, `dev_actor.py` |
 
 This spec is the source of truth until signup/login/profile are implemented in code.

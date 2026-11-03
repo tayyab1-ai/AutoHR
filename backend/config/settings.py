@@ -1,22 +1,33 @@
 """
-Django settings for the AutoHR demo frontend.
+Django settings for AutoHR.
 
-Django frontend for AutoHR with PostgreSQL-backed job creation on the dashboard.
-Other dashboard panels still use demo data until they are wired to the database.
+Layout:
+  repo root  — .env, docs, database/
+  backend/   — manage.py, config/, portal/ (Django app)
+  frontend/  — templates/, static/ (UI assets)
 """
 
 import os
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = BACKEND_DIR.parent
+
+
+def _frontend_dir(root: Path) -> Path:
+    """Resolve UI folder (frontend/ or Frontend/ on case-insensitive filesystems)."""
+    for name in ("frontend", "Frontend"):
+        candidate = root / name
+        if (candidate / "templates").is_dir() and (candidate / "static").is_dir():
+            return candidate
+    return root / "frontend"
+
+
+FRONTEND_DIR = _frontend_dir(ROOT_DIR)
 
 
 def _load_dotenv(path, *, override=False):
-    """Load KEY=value lines from Frontend/.env.
-
-    override=True for local dev so values in .env replace stale shell exports
-    (e.g. an old GROQ_API_KEY left in the terminal or system environment).
-    """
+    """Load KEY=value lines from repo-root .env."""
     if not path.is_file():
         return
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -30,10 +41,8 @@ def _load_dotenv(path, *, override=False):
             os.environ[key] = value
 
 
-_load_dotenv(BASE_DIR / ".env", override=True)
+_load_dotenv(ROOT_DIR / ".env", override=True)
 
-# Real keys belong in Frontend/.env, which git ignores.
-# This fallback is only for local demo runs with no .env file.
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "dev-only-secret-key-for-autohr-frontend-demo-change-me",
@@ -55,7 +64,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "autohr_frontend.middleware.DevNoCacheMiddleware",
+    "config.middleware.DevNoCacheMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -72,7 +81,7 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 14  # 14 days; concurrent device sessions allowed
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
 SESSION_SAVE_EVERY_REQUEST = True
 
 CACHES = {
@@ -90,12 +99,12 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER") or os.environ.get("EMAIL_USE
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") or os.environ.get("EMAIL_PASS", "")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@autohr.local")
 
-ROOT_URLCONF = "autohr_frontend.urls"
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [FRONTEND_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -107,7 +116,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "autohr_frontend.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
     "default": {
@@ -126,6 +135,6 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+STATICFILES_DIRS = [FRONTEND_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

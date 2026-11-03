@@ -182,7 +182,7 @@ def call_groq_chat(system: str, user: str) -> str:
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
     model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
     if not api_key:
-        raise RuntimeError("GROQ_API_KEY is not set in Frontend/.env")
+        raise RuntimeError("GROQ_API_KEY is not set in the repo-root .env file")
 
     try:
         client = Groq(api_key=api_key)
@@ -200,7 +200,7 @@ def call_groq_chat(system: str, user: str) -> str:
         if "invalid_api_key" in msg.lower() or "401" in msg:
             raise RuntimeError(
                 "Groq rejected the API key. Open console.groq.com, create a new key, "
-                "and update GROQ_API_KEY in Frontend/.env, then restart runserver."
+                "and update GROQ_API_KEY in .env at the repo root, then restart runserver."
             ) from exc
         raise RuntimeError(f"Groq API error: {msg[:500]}") from exc
 
