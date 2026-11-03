@@ -345,7 +345,8 @@ document.addEventListener("DOMContentLoaded", function () {
             showEl(loginError, msg);
             return;
           }
-          window.location.href = result.data.redirect || "/dashboard/";
+          var nextParam = new URLSearchParams(window.location.search).get("next");
+          window.location.href = result.data.redirect || nextParam || "/dashboard/";
         })
         .catch(function () {
           showEl(loginError, "Network error. Try again.");

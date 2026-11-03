@@ -1,16 +1,8 @@
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from . import data
-from .dev_actor import ensure_demo_hr
-
-
-def _actor(request):
-    if getattr(request.user, "is_authenticated", False) and hasattr(request.user, "db_user"):
-        u = request.user.db_user
-        return u.company, u
-    return ensure_demo_hr()
+from .decorators import hr_login_required
 from .forms import JobIntakeForm
 from .models import JobPosting
 from .services import (
@@ -20,13 +12,22 @@ from .services import (
     jobs_for_dashboard,
     save_finalized_job_description,
 )
+from .session_user import build_hr_profile, workspace_shell
+
+
+def _session_actor(request):
+    return request.user.db_user.company, request.user.db_user
 
 
 def landing(request):
+    if getattr(request.user, "is_authenticated", False) and hasattr(request.user, "db_user"):
+        return redirect("dashboard")
     return render(request, "landing.html")
 
 
 def auth_page(request, mode="signup"):
+    if getattr(request.user, "is_authenticated", False) and hasattr(request.user, "db_user"):
+        return redirect("dashboard")
     context = {
         "mode": mode,
         "is_signup": mode == "signup",
@@ -36,41 +37,27 @@ def auth_page(request, mode="signup"):
     return render(request, "auth.html", context)
 
 
+@hr_login_required
 def dashboard(request):
-    company, user = _actor(request)
-    db_jobs = jobs_for_dashboard(company)
-    jobs = db_jobs if db_jobs else data.JOBS
-
-    hr = {
-        **data.HR_ACCOUNT,
-        "full_name": user.full_name,
-        "email": user.email,
-        "job_title": user.job_title or data.HR_ACCOUNT["job_title"],
-        "company_name": company.name,
-    }
+    company, user = _session_actor(request)
+    jobs = jobs_for_dashboard(company)
+    shell = workspace_shell(active_jobs=len(jobs))
+    hr = build_hr_profile(user, company)
 
     context = {
         "hr": hr,
         "company_name": company.name,
         "job_form": JobIntakeForm(company_name=company.name),
-        "kpis": data.KPI_CARDS,
-        "funnel": data.PIPELINE_FUNNEL,
-        "activity": data.RECENT_ACTIVITY,
         "jobs": jobs,
-        "candidates": data.CANDIDATES,
-        "interviews": data.INTERVIEWS,
-        "kanban": data.KANBAN_COLUMNS,
-        "reports": data.REPORTS_SUMMARY,
-        "chart_months": data.CHART_MONTHS,
-        "chart_values": data.CHART_APPLICATIONS,
-        "chart_max": max(data.CHART_APPLICATIONS),
+        **shell,
     }
     return render(request, "dashboard.html", context)
 
 
+@hr_login_required
 @require_POST
 def create_job_post(request):
-    company, user = _actor(request)
+    company, user = _session_actor(request)
     form = JobIntakeForm(request.POST, company_name=company.name)
     form.expected_company_name = company.name
 
@@ -105,9 +92,10 @@ def create_job_post(request):
     return JsonResponse(payload)
 
 
+@hr_login_required
 @require_POST
 def generate_job_jd(request, job_id):
-    company, _user = _actor(request)
+    company, _user = _session_actor(request)
     try:
         job = get_job_for_company(job_id, company)
     except JobPosting.DoesNotExist:
@@ -131,10 +119,10 @@ def generate_job_jd(request, job_id):
     )
 
 
+@hr_login_required
 @require_POST
 def prepare_google_form(request, job_id):
-    """Step 3 placeholder: persist finalized description; Google Form wiring comes later."""
-    company, _user = _actor(request)
+    company, _user = _session_actor(request)
     try:
         job = get_job_for_company(job_id, company)
     except JobPosting.DoesNotExist:

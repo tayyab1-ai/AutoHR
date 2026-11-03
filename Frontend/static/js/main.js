@@ -89,29 +89,4 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Demo-only submit handler: validates with Bootstrap styles, then
-  // shows a success banner and redirects to the dashboard preview.
-  document.querySelectorAll("[data-demo-auth-form]:not([data-real-auth-form])").forEach(function (form) {
-    form.addEventListener("submit", function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (!form.checkValidity()) {
-        form.classList.add("was-validated");
-        return;
-      }
-      var banner = form.querySelector("[data-form-banner]");
-      var submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Please wait...';
-      }
-      if (banner) {
-        banner.classList.remove("d-none");
-        banner.textContent = form.getAttribute("data-success-message") || "Success. Redirecting...";
-      }
-      window.setTimeout(function () {
-        window.location.href = "/dashboard/";
-      }, 650);
-    });
-  });
 });

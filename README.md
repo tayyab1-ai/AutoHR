@@ -1,154 +1,172 @@
 # AutoHR
 
-A Pakistan-localized hiring workspace for HR teams. The Django frontend renders the landing page, account screens, and HR dashboard.
+A Pakistan-localized hiring workspace for HR teams. Django serves the marketing landing page, **real signup/sign-in**, and a protected HR dashboard.
 
-**Create Job** is wired to PostgreSQL (`autohr_n`): validate intake → save job → **Groq AI** job description (step 2 on the same page) → HR review/edit → save finalized copy. The next pipeline step will attach a **Google Form** link after `Apply Here:`. Other dashboard sections still use demo data in `portal/data.py`.
+**Create Job** is wired to PostgreSQL (`autohr_n`): validate intake → save job → **Groq AI** job description (step 2 on the same page) → HR review/edit → save finalized copy. The next pipeline step will attach a **Google Form** link after `Apply Here:`.
+
+**Access:** There is **no demo workspace**. `/dashboard/` and all job APIs require a signed-in HR user. Public routes are `/`, `/login/`, and `/register/` only.
 
 ## Current step (where the build is now)
 
 | Pipeline phase | Status | Notes |
 | --- | --- | --- |
+| **Auth — signup (email OTP)** | Done | 6-digit code, 2-minute cache TTL, 3 attempts; user created only after OTP |
+| **Auth — login / sessions** | Done | Email + password, PostgreSQL `users.password_hash`, multi-device sessions |
+| **Auth — forgot password** | Done | Email OTP resets password for existing accounts |
 | **1 — Job intake (form A–G)** | Done | Validate on server, save `job_postings` + `job_responsibilities` |
-| **2 — AI job description (Groq)** | Done | Same-page stepper step 2; `ai_generated_jd_draft`; formatted preview + rectangular edit |
+| **2 — AI job description (Groq)** | Done | Same-page stepper step 2; `ai_generated_jd_draft`; formatted preview + edit |
 | **2b — Apply footer** | Done | AI ends with **How to Apply** → **`Apply Here: `** (blank; URL in next phase) |
 | **3 — HR finalize description** | Done | **Post Create Google Form** → `approved_jd_content` (no real Google Form yet) |
 | **4 — Create Google Form + link** | **Next** | Generate form, insert URL after `Apply Here:` |
 | **5 — Publish to job boards** | Not started | Rozee / Indeed / LinkedIn |
-| **Auth (real login/register)** | Not started | Dashboard uses demo `ensure_demo_hr()` |
-| **Applications, pipeline, interviews, reports** | Demo UI | Data from `portal/data.py` |
+| **Profile wizard + integrations** | Not started | Spec in [docs/auth_onboarding_integrations.md](docs/auth_onboarding_integrations.md) |
+| **Applications, pipeline, interviews, reports (DB-backed)** | Not started | UI shells with empty states; no fake sample rows |
 
-**You are here:** finish step **4** (Google Form + link), then job boards.
-
-**Next major track:** real **signup / login / profile completion** before first job — full field list, integrations (Google Forms, Drive, Meet, email, LinkedIn simple post, job boards), and DB plan are in **[docs/auth_onboarding_integrations.md](docs/auth_onboarding_integrations.md)**.
+**You are here:** step **4** (Google Form + link), then job boards and profile/integrations wizard.
 
 ## What is finished
 
 | Area | Status |
 | --- | --- |
-| Marketing landing page | Done |
-| Sign-in and HR registration screens | Done, demo only |
-| HR dashboard with eight sections on one page | Done |
-| Pakistan-specific sample data | Done |
+| Marketing landing page (public) | Done |
+| **Signup** — email, password, OTP modal (Fetch API, no page reload on OTP step) | Done |
+| **Login** — email/password, Django session | Done |
+| **Forgot password** — OTP on login page | Done |
+| **Protected dashboard** — login required; no anonymous demo actor | Done |
+| HR dashboard shell (eight panels on one page) | Done |
 | Visual system (type, color, layout, motion) | Done |
-| Local run setup, secret-file ignore rules, and `.env` loading | Done |
+| Repo layout (`backend/`, `frontend/`, `database/`, root `.env`) | Done |
 | PostgreSQL schema (`autohr_n`) | Done |
-| **Create Job** — real intake fields, server validation, save to DB | Done |
-| **Jobs** list — reads saved postings from the DB | Done (falls back to demo rows if none exist) |
-| Dashboard panels other than Create Job / Jobs | Demo data only |
-| Real sign-in / registration against the DB | Not started — spec in `docs/auth_onboarding_integrations.md` |
-| Profile wizard (integrations before first job) | Not started — same spec |
-| **Step 2 — AI job description** (Groq, formatted preview, rectangle edit box) | Done |
-| **Step 2 — Apply Here:** line in AI output (blank for future form URL) | Done |
+| **Create Job** — intake, validation, save to DB | Done |
+| **Jobs** list — real rows for signed-in user’s company only | Done |
+| **Step 2 — AI JD** (Groq, preview/edit) | Done |
 | **Post Create Google Form** — save finalized JD to DB | Done (form URL not created yet) |
-| Google Form creation, Apply link injection, job-board posting | Not started |
+| Profile wizard, company/job-board credential onboarding | Not started |
+| Google Form automation + Apply link injection | Not started |
+| Job-board publishing | Not started |
+| Applications / pipeline / interviews / reports from DB | Not started |
+
+## Authentication
+
+### Signup (`/register/`)
+
+1. Enter **email**, **password**, **confirm password** (client + server rules: 8+ chars, at least one letter and one number).
+2. **Sign up** sends a 6-digit OTP via **Gmail SMTP** (settings in repo-root `.env`).
+3. OTP **modal**: countdown **2:00**, **resend** after expiry, **change email**, max **3** wrong attempts then lockout.
+4. On success, account is created in PostgreSQL (`users` + placeholder `companies` row); redirect to **login** with success message.
+5. Passwords are hashed with Django’s default hasher; plain text is never stored.
+
+### Login (`/login/`)
+
+- Email + password; session via `login()` and custom `HrEmailBackend` against `users`.
+- Failed login shows a generic error; existing emails hint at **Forgot password**.
+- After login, **`/dashboard/`** and job POST endpoints use the **session user’s** `company_id` / `user_id`.
+
+### Forgot password
+
+- On the login page: **Forgot password?** → new password + confirm → OTP email → verify → sign in with the new password.
+
+### API routes (auth)
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/auth/signup/send-otp/` | Start signup, send OTP |
+| POST | `/auth/signup/verify-otp/` | Verify OTP, create user |
+| POST | `/auth/signup/resend-otp/` | Resend signup OTP |
+| POST | `/auth/password/send-otp/` | Start password reset |
+| POST | `/auth/password/verify-otp/` | Confirm reset OTP |
+| POST | `/auth/password/resend-otp/` | Resend reset OTP |
+| POST | `/auth/login/` | JSON login |
+| POST | `/auth/logout/` | JSON logout |
+| GET | `/logout/` | Sign out redirect to home |
+
+**Code:** `backend/portal/auth_views.py`, `auth_services.py`, `auth_backend.py`, `auth_user.py`, `decorators.py`; UI: `frontend/templates/auth.html`, `frontend/static/js/auth.js`.
+
+**Email setup:** `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (Google **App Password**), `DEFAULT_FROM_EMAIL` in `.env`. See `.env.example`.
+
+Run once after pulling auth changes:
+
+```powershell
+cd backend
+python manage.py migrate
+```
 
 ## Pages
 
-| Route | Screen | What you can do |
+| Route | Access | What you can do |
 | --- | --- | --- |
-| `/` | Landing | Read the product story and jump to Sign In, Get Started, or the dashboard |
-| `/login/` | Sign in | Enter a work email and password. A valid demo submit opens the dashboard |
-| `/register/` | Create an HR account | Fill the HR, company, and job-board fields. A valid demo submit opens the dashboard |
-| `/dashboard/` | HR workspace | Move between Dashboard, Jobs, Create Job, Applications, Pipeline, Interviews, Reports, and Account without leaving the page |
+| `/` | Public | Marketing; redirects to dashboard if already signed in |
+| `/login/` | Public | Sign in (redirects to dashboard if already signed in) |
+| `/register/` | Public | Sign up with OTP |
+| `/dashboard/` | **Login required** | HR workspace (panels below) |
 
-Sign in and registration are the same template. The URL chooses which panel is visible, and a link on the page switches between them without a reload.
+Sign-in and registration share one template; the URL sets the visible panel. Auth actions use **Fetch API** (no full-page reload for OTP/login submit).
 
 ### Landing page
 
-- Sticky navigation with links to the pipeline, scoring rubric, technology section, and dashboard
-- Hero with a trial button, a dashboard button, and animated counts
-- Trust row for Rozee.pk, Indeed Pakistan, LinkedIn, Mettl, and PSEB
-- Four hiring phases and the ten pipeline steps
-- Five interview dimensions, each scored out of 10: Communication, Confidence, Technical Knowledge, Relevance, and Problem-Solving
-- Technology section, three HR testimonials, a closing call to action, and a footer
+- Product story, pipeline, scoring rubric, technology section
+- CTAs: **Get Started** → register, **Sign in to workspace** → login (no dashboard demo link)
 
-### Registration fields
+### Registration (current UI)
 
-The create-account form is prefilled with the demo HR profile so the layout can be reviewed quickly.
+- **Fields:** work email, password, confirm password (not the full company/profile wizard yet).
+- After OTP verification, a **minimal company** row is created; full profile onboarding is planned in [docs/auth_onboarding_integrations.md](docs/auth_onboarding_integrations.md).
 
-- **HR profile:** full name, job title, work phone, work email, password, confirm password
-- **Company:** name, website, industry, company size, country, city, office address
-- **Job-board accounts already created:** LinkedIn profile link, LinkedIn email and password, Indeed email and password, Rozee.pk email and password
+### Dashboard (signed-in only)
 
-Required fields are marked. Password fields can be shown or hidden. Info tips explain each field. Passwords must be at least 8 characters on the HR account. Submitting a valid form shows a short success message and then opens `/dashboard/`. No account is created.
+Sidebar panels on one screen; header has **New Job**, notifications placeholder, and HR chip from **your** DB user.
 
-### Dashboard
-
-The sidebar swaps panels on the same screen. The header has search, **New Job**, a notification button, and the signed-in HR chip. On a narrow screen the sidebar slides in from the menu button.
-
-| Section | What it shows |
+| Section | What it shows today |
 | --- | --- |
-| Dashboard | Four KPI cards, the Phase 1–4 funnel, a six-month applications chart, and recent activity |
-| Jobs | Roles from PostgreSQL for your company when present; otherwise six sample roles from demo data |
-| Create Job | 3-step flow: intake (A–G) → AI description → finalize (Google Form step stub) — see below |
-| Applications | Six candidates in a split view, with overview and score-breakdown tabs |
-| Pipeline | Kanban columns for Posted, Screened, Interviewed, and Decided |
-| Interviews | Scheduled and completed 3-stage AI video interviews |
-| Reports | Time to hire, cost per hire, offer acceptance, top source, and the applications chart |
-| Account | The stored demo HR profile, including masked job-board passwords |
-
-Sample company: **Northbridge Technologies**, Lahore. Signed-in HR: **Ayesha Khan**, HR Manager.
+| Dashboard | KPIs derived from your job count; other metrics **0** / placeholders until modules ship |
+| Jobs | **PostgreSQL** postings for your company (empty state if none) |
+| Create Job | Full intake → Groq JD → finalize (see below) |
+| Applications | Empty state — not wired to DB yet |
+| Pipeline | Empty state — not wired to DB yet |
+| Interviews | Empty state — not wired to DB yet |
+| Reports | Placeholder stats — not wired to DB yet |
+| Account | **Your** HR + company fields from PostgreSQL |
 
 ### Create Job (PostgreSQL + Groq)
 
-The sidebar **Create Job** panel uses a **three-step stepper** on one page:
+Three-step stepper on one page:
 
 | Step | UI label | What happens |
 | --- | --- | --- |
-| 1 | Job Details | Full intake form (sections below), live preview, **Generate Job Description** |
-| 2 | AI Job Description | Loading state, then formatted draft; preview or **Edit description** (rectangular editor) |
-| 3 | Publish to Boards | **Post Create Google Form** saves finalized text (Google Form automation comes next) |
+| 1 | Job Details | Intake form (sections A–G), **Generate Job Description** |
+| 2 | AI Job Description | Groq draft, preview / edit, retry |
+| 3 | Publish to Boards | **Post Create Google Form** saves finalized text (automation next) |
 
-Sign-in is still demo-only; saves use **`ensure_demo_hr()`** (Northbridge Technologies / Ayesha Khan in the DB), not the email you type on `/login/`.
+Requires **sign-in**. Data is scoped to the logged-in user’s company.
 
-Intake fields are grouped as **A, B, C, D, E, and G**:
+Intake groups **A, B, C, D, E, G** (basic info, experience/education, skills, salary/benefits, responsibilities, shortlisting/tone). Tooltips on labels; live preview on the right.
 
-**A — Basic job information:** job title, department, job category, employment type, work mode, city, number of vacancies, job description, company name (must match the registered company in the DB), posting date, application deadline, urgency level.
+**Generate Job Description:**
 
-**B — Experience and education:** minimum / maximum experience (years), fresh-graduate eligibility, minimum education level.
-
-**C — Technical skills:** required skills (chip input); programming languages when the category is software, data, AI/ML, or cybersecurity; optional frameworks, tools, cloud platforms, and technical knowledge text.
-
-**D — Salary and benefits:** optional min/max salary in PKR, required salary period, negotiable flag, and benefit toggles/text (bonus, insurance, leave, relocation, equipment, and so on).
-
-**E — Responsibilities:** repeatable key responsibilities (required) and optional daily tasks — stored in `job_responsibilities`.
-
-**G — Shortlisting and tone:** job post tone (with custom instructions when tone is Custom), shortlist count after CV screening (20–30, default 25), shortlist count after interview.
-
-Each label has an **ⓘ tooltip**. The right column is a **live preview** (browser-only until you save).
-
-**Generate Job Description** (step 1 → 2):
-
-1. Server validates all intake fields (`JobIntakeForm`). Errors stay on step 1 — nothing is saved until validation passes.
-2. Valid data is written to **`job_postings`** and **`job_responsibilities`** (status `draft`).
-3. **Groq** runs on the server in the same request (`GROQ_API_KEY`, `GROQ_MODEL` in repo-root `.env`; default model in `.env.example` is `openai/gpt-oss-120b`). Prompt + normalization live in **`backend/portal/groq_jd.py`**.
-4. The UI switches to **step 2**. The draft is stored in **`ai_generated_jd_draft`** and rendered with headings, bullets, and paragraphs (not raw `#` / `-` markdown). The closing section includes **`Apply Here: `** with a blank space for the Google Form URL in the next build step.
-5. HR can **Edit description** (full-width rectangular textarea) or return to **Preview formatted**.
-6. **Retry AI generation** calls `POST /dashboard/jobs/<id>/generate-jd/` if the first AI call failed.
-7. **Post Create Google Form** writes the finalized text to **`approved_jd_content`** (edited copy, or the AI draft if unchanged). Creating the form and inserting the link is not implemented yet.
+1. Server validates (`JobIntakeForm`); errors stay on step 1.
+2. Save to **`job_postings`** + **`job_responsibilities`** (`draft`).
+3. **Groq** in the same request (`GROQ_API_KEY`, `GROQ_MODEL` in `.env`; default `openai/gpt-oss-120b` in `.env.example`). Logic: **`backend/portal/groq_jd.py`**.
+4. Step 2 shows formatted draft in **`ai_generated_jd_draft`**; ends with **`Apply Here: `** (URL later).
+5. **Retry:** `POST /dashboard/jobs/<uuid>/generate-jd/`
+6. **Post Create Google Form:** writes **`approved_jd_content`**
 
 | Column | Purpose |
 | --- | --- |
 | `ai_generated_jd_draft` | AI output from Groq |
-| `approved_jd_content` | HR-finalized description after review |
+| `approved_jd_content` | HR-finalized description |
 
-**API routes:** `POST /dashboard/jobs/create/`, `POST /dashboard/jobs/<uuid>/generate-jd/`, `POST /dashboard/jobs/<uuid>/prepare-google-form/`.
+**Job API routes (login required):** `POST /dashboard/jobs/create/`, `POST /dashboard/jobs/<uuid>/generate-jd/`, `POST /dashboard/jobs/<uuid>/prepare-google-form/`
 
-**Code:** `backend/portal/forms.py`, `services.py`, `groq_jd.py`, `models.py`, `dev_actor.py`, `frontend/templates/partials/create_job_panel.html`, `frontend/static/js/create_job.js`, `frontend/static/css/dashboard.css` (JD preview/edit styles).
+**Code:** `backend/portal/forms.py`, `services.py`, `groq_jd.py`, `models.py`, `session_user.py`, `frontend/templates/partials/create_job_panel.html`, `frontend/static/js/create_job.js`, `frontend/static/css/dashboard.css`
 
-## Sample data
+## Demo mode removed
 
-Most dashboard numbers live in `backend/portal/data.py`. The **Jobs** table and **Create Job** flow read and write `job_postings` and `job_responsibilities` in PostgreSQL when repo-root `.env` is configured.
+Previously, the app used **`ensure_demo_hr()`** and **`portal/data.py`** so anyone could open the dashboard and see fake jobs/candidates. That is **removed**:
 
-The set is written for a Pakistani HR audience:
-
-- Salaries in PKR per month
-- Offices in Lahore, Karachi, Islamabad, Rawalpindi, and Faisalabad
-- Phone numbers with the `+92` country code
-- Job boards called out as Rozee.pk and Indeed Pakistan
-- The app time zone is `Asia/Karachi`
-
-**Create Job** uses Groq for job-description drafting (see above). Landing-page copy also mentions Whisper interview transcription; that is **not** connected yet.
+- No auto-login as Northbridge / Ayesha Khan
+- No fallback fake job list
+- No demo auth redirect in `main.js`
+- Anonymous **`/dashboard/`** → redirect to **`/login/?next=/dashboard/`**
 
 ## Project layout
 
@@ -161,135 +179,92 @@ AutoHR-N/
 │   ├── manage.py
 │   ├── requirements.txt
 │   ├── config/               # settings, URLs, WSGI, middleware
-│   └── portal/               # app: views, auth, models, Groq, services
-├── frontend/                 # UI templates + static (CSS/JS); may show as Frontend on Windows
+│   └── portal/               # views, auth, models, Groq, services
+├── frontend/                 # templates + static (may show as Frontend on Windows)
 │   ├── templates/
 │   └── static/
 ├── database/
-│   ├── schema.sql            # PostgreSQL DDL for autohr_n
-│   └── ARCHITECTURE.md       # tables, columns, relationships
+│   ├── schema.sql
+│   └── ARCHITECTURE.md
 ├── docs/
 │   └── auth_onboarding_integrations.md
 └── scripts/
-    └── run-dev.ps1           # optional dev server helper
+    └── run-dev.ps1
 ```
 
-`portal` is the only Django app. Settings live in `backend/config/settings.py`. Secrets and `POSTGRES_*` / `GROQ_*` / email vars are in **`.env` at the repo root**.
+Settings: **`backend/config/settings.py`**. Secrets: **`.env`** at repo root (`POSTGRES_*`, `GROQ_*`, `DJANGO_SECRET_KEY`, Gmail SMTP).
 
 ## Run it locally
 
-Requirements: Python 3.11 or newer, PostgreSQL with **`autohr_n`** schema applied, a valid **Groq API key**, and the virtual environment at `backend/.venv` (`pip install -r requirements.txt` installs Django, psycopg, and **groq**).
-
-From PowerShell:
+Requirements: Python 3.11+, PostgreSQL with **`autohr_n`** schema, **Groq API key**, **Gmail App Password** for OTP, venv at **`backend/.venv`**.
 
 ```powershell
 cd backend
 .\.venv\Scripts\Activate.ps1
-python manage.py runserver
-```
-
-Or from the repo root:
-
-```powershell
-.\scripts\run-dev.ps1
-```
-
-If activation is blocked, start the app with the environment’s Python directly:
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe manage.py runserver
-```
-
-Leave that window open. Stopping the server makes every link in the browser fail. Then open:
-
-- http://127.0.0.1:8000/
-- http://127.0.0.1:8000/login/
-- http://127.0.0.1:8000/register/
-- http://127.0.0.1:8000/dashboard/
-
-On a fresh machine, create the environment first:
-
-```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
 ```
 
-Stylesheets and scripts are linked with a file-modification version, and development responses send `Cache-Control: no-store`. After a CSS change, reload the page. If Chrome still shows an older header, press **Ctrl+Shift+R** once.
+Or from repo root: **`.\scripts\run-dev.ps1`**
+
+Open:
+
+- http://127.0.0.1:8000/
+- http://127.0.0.1:8000/register/
+- http://127.0.0.1:8000/login/
+- http://127.0.0.1:8000/dashboard/ (after login)
+
+Hard-refresh (**Ctrl+Shift+R**) after CSS/JS changes. Dev responses use `Cache-Control: no-store`.
 
 ## Database
 
-PostgreSQL holds database **`autohr_n`**. Re-run `database/schema.sql` only after you change the schema (drop/recreate or migrate as you prefer).
-
 | Item | Value |
 | --- | --- |
-| Host | `localhost` |
-| Port | `5432` |
 | Database | `autohr_n` |
-| Login | `autohr` |
-| Password | repo-root `.env` (`POSTGRES_PASSWORD`) |
 | Schema script | `database/schema.sql` |
-| Table guide | `database/ARCHITECTURE.md` |
+| Reference | `database/ARCHITECTURE.md` |
+| Connection | `POSTGRES_*` in `.env` |
 
-The login `autohr` can change the schema (add or alter columns). The password is only in `.env`, which git ignores.
+Django uses unmanaged models in **`backend/portal/models.py`**. **`job_postings`** / **`job_responsibilities`** are written by Create Job; auth uses **`users`** / **`companies`**.
 
-The schema includes **`job_postings`** (full intake columns), **`job_responsibilities`**, companies, users, board posts, candidates, applications, interviews, rankings, notifications, and related tables. **`job_postings`** and **`job_responsibilities`** are written by **Create Job**; other tables are for later pipeline steps. Details are in `database/ARCHITECTURE.md`.
+## Secrets (`.env` at repo root)
 
-`.env.example` at the repo root lists variable names (Postgres + Groq + email); copy to `.env` and fill in real secrets (never commit `.env`).
-
-## Secrets
-
-`.gitignore` keeps local secrets out of git:
-
-- `.env` files (`.env.example` is allowed)
-- key and certificate files
-- `secrets.json`, `credentials.json`, and service-account JSON
-- `local_settings.py`
-- virtual environments, `__pycache__`, and SQLite files
-
-Copy the example and put a real key in the ignored file:
-
-```powershell
-copy .env.example .env
-```
+Copy **`.env.example`** → **`.env`**. Never commit `.env`.
 
 ```text
-DJANGO_SECRET_KEY=your-long-random-string
+DJANGO_SECRET_KEY=...
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=autohr
-POSTGRES_PASSWORD=your-local-password
+POSTGRES_PASSWORD=...
 POSTGRES_DB=autohr_n
-GROQ_API_KEY=your-groq-api-key
+GROQ_API_KEY=...
 GROQ_MODEL=openai/gpt-oss-120b
+EMAIL_HOST_USER=your@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+DEFAULT_FROM_EMAIL=your@gmail.com
 ```
 
-`backend/config/settings.py` loads the repo-root `.env` with **`override=True`** so values in the file replace stale `GROQ_API_KEY` / `POSTGRES_*` exports in the shell or Windows environment. Restart **`runserver`** after changing `.env`.
+`settings.py` loads `.env` with **`override=True`**. Restart **`runserver`** after edits.
 
-If `DJANGO_SECRET_KEY` is missing, the app uses a labeled demo key so `runserver` still starts. **Create Job** needs working **Postgres** and **Groq** configuration.
+**Gmail OTP:** enable 2-Step Verification → create an **App Password** → put it in `EMAIL_HOST_PASSWORD` (not your normal Gmail password).
 
 ## Front-end notes
 
-- Bootstrap 5.3 and Bootstrap Icons load from a CDN
-- Plus Jakarta Sans loads from Google Fonts
-- Scroll reveals use AOS
-- Shared behavior (tooltips, counters, password visibility, auth toggle, demo submit) is in `static/js/main.js`
-- Dashboard behavior (panel switching, sidebar, bar animation, candidate selection) is in `static/js/dashboard.js`
-- Create Job (skill chips, repeatables, step 2 AI preview/edit, Groq save/retry, finalize POST) is in `static/js/create_job.js`
-- Colors, type, and landing styles are in `static/css/theme.css`
-- Dashboard layout is in `static/css/dashboard.css`
-
-The header actions (New Job, notifications, and the HR chip) stay on one row. Dashboard sections are buttons, not separate URLs, so the address stays `/dashboard/` while you move around the workspace.
+- Bootstrap 5.3, Bootstrap Icons, Plus Jakarta Sans, AOS (CDN)
+- **`frontend/static/js/main.js`** — tooltips, counters, password visibility, auth panel toggle
+- **`frontend/static/js/auth.js`** — signup OTP modal, login, forgot password
+- **`frontend/static/js/create_job.js`** — Create Job stepper + Groq flow
+- **`frontend/static/js/dashboard.js`** — panel switching, sidebar
+- **`frontend/static/css/theme.css`**, **`dashboard.css`**, **`auth.css`**
 
 ## What is not connected yet
 
-- **Sign-in and registration** — demo UI only; no session or auth tied to job APIs.
-- **Most dashboard panels** (overview KPIs, applications, pipeline, interviews, reports, account) — still driven by `backend/portal/data.py`.
-- **Google Form** — next step: create the form, paste the URL after **`Apply Here:`** in the stored description, and wire **Post Create Google Form** to that automation.
-- **Job boards** — no publish/sync to Rozee.pk, Indeed, or LinkedIn yet.
+- **Profile wizard** — full company + job-board credentials before first job ([spec](docs/auth_onboarding_integrations.md))
+- **Google Form** — create form, inject URL after **`Apply Here:`**
+- **Job boards** — Rozee.pk, Indeed Pakistan, LinkedIn
+- **Applications, pipeline, interviews, reports** — UI only; empty until backed by PostgreSQL
+- **Whisper / AI interviews** — mentioned on landing; not implemented
 
-`database/schema.sql` and `database/ARCHITECTURE.md` describe the current database; extend them when new screens need more tables or columns.
+Extend **`database/schema.sql`** and **`database/ARCHITECTURE.md`** when new features need tables or columns.

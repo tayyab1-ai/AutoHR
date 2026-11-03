@@ -48,6 +48,14 @@ document.addEventListener("DOMContentLoaded", function () {
     return input ? input.value : "";
   }
 
+  function handleAuthFailure(result) {
+    if (result && result.status === 401 && result.data && result.data.redirect) {
+      window.location.href = result.data.redirect;
+      return true;
+    }
+    return false;
+  }
+
   function setStepperActive(step) {
     if (!stepper) return;
     stepper.querySelectorAll("[data-step-indicator]").forEach(function (el) {
@@ -404,6 +412,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     return fetchGenerateJd(jobId)
       .then(function (genResult) {
+        if (handleAuthFailure(genResult)) return;
         if (!genResult.ok) {
           showJdErrors(genResult.data.errors || genResult.data);
           showJdRetry();
@@ -429,7 +438,7 @@ document.addEventListener("DOMContentLoaded", function () {
       },
     }).then(function (res) {
       return res.json().then(function (data) {
-        return { ok: res.ok, data: data };
+        return { ok: res.ok, status: res.status, data: data };
       });
     });
   }
@@ -454,10 +463,11 @@ document.addEventListener("DOMContentLoaded", function () {
     })
       .then(function (res) {
         return res.json().then(function (data) {
-          return { ok: res.ok, data: data };
+          return { ok: res.ok, status: res.status, data: data };
         });
       })
       .then(function (result) {
+        if (handleAuthFailure(result)) return;
         if (!result.ok) {
           showFormErrors(result.data.errors || result.data);
           return;
@@ -523,10 +533,11 @@ document.addEventListener("DOMContentLoaded", function () {
       })
         .then(function (res) {
           return res.json().then(function (data) {
-            return { ok: res.ok, data: data };
+            return { ok: res.ok, status: res.status, data: data };
           });
         })
         .then(function (result) {
+          if (handleAuthFailure(result)) return;
           if (!result.ok) {
             showJdErrors(result.data.errors || result.data);
             return;

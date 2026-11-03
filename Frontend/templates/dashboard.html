@@ -26,7 +26,7 @@
         <span class="db-nav-icon"><i class="bi bi-plus-circle-fill"></i></span><span class="db-hide-on-collapse">Create Job</span>
       </button>
       <button type="button" class="db-nav-item" data-panel-target="applications" data-panel-title="Applications" data-panel-subtitle="AI-screened candidates ranked by fit against job requirements.">
-        <span class="db-nav-icon"><i class="bi bi-people-fill"></i></span><span class="db-hide-on-collapse">Applications</span><span class="db-nav-badge db-hide-on-collapse">847</span>
+        <span class="db-nav-icon"><i class="bi bi-people-fill"></i></span><span class="db-hide-on-collapse">Applications</span>
       </button>
       <button type="button" class="db-nav-item" data-panel-target="pipeline" data-panel-title="Pipeline" data-panel-subtitle="Every candidate's current stage, from applied to decided.">
         <span class="db-nav-icon"><i class="bi bi-kanban-fill"></i></span><span class="db-hide-on-collapse">Pipeline</span>
@@ -43,8 +43,8 @@
     </nav>
 
     <div class="db-automation-box db-hide-on-collapse">
-      <div class="db-auto-header"><i class="bi bi-lightning-charge-fill"></i> Automation Active</div>
-      <div class="db-auto-sub">24 workflows running across Rozee.pk &amp; Indeed PK</div>
+      <div class="db-auto-header"><i class="bi bi-lightning-charge-fill"></i> Workspace</div>
+      <div class="db-auto-sub">Signed in — job posting &amp; AI JD are live; more modules coming soon.</div>
     </div>
 
     <div class="db-sidebar-footer">
@@ -125,6 +125,8 @@
                     </div>
                     <span class="text-muted text-end">{{ stage.pct }}%</span>
                   </div>
+                  {% empty %}
+                  <p class="text-muted small mb-0">Pipeline analytics will appear when you have applications in the system.</p>
                   {% endfor %}
                 </div>
 
@@ -160,6 +162,8 @@
                       <div class="db-activity-time">{{ item.meta }}</div>
                     </div>
                   </div>
+                  {% empty %}
+                  <p class="text-muted small mb-0">No recent activity yet. Create a job to get started.</p>
                   {% endfor %}
                 </div>
               </div>
@@ -201,12 +205,14 @@
                   </td>
                   <td class="text-muted">{{ job.posted }}</td>
                 </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-muted text-center py-4">No jobs yet. Use <strong>Create Job</strong> or <strong>New Job</strong> to post your first role.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
           <div class="db-pagination">
-            <span>Showing 1 to {{ jobs|length }} of {{ jobs|length }} jobs</span>
+            <span>{% if jobs %}Showing 1 to {{ jobs|length }} of {{ jobs|length }} jobs{% else %}No jobs to show{% endif %}</span>
             <div class="d-flex gap-1"><button class="db-page-btn is-active">1</button></div>
           </div>
         </div>
@@ -235,6 +241,8 @@
                 <div class="text-muted mt-1" style="font-size:11px;">{{ c.applied }}</div>
               </div>
             </div>
+            {% empty %}
+            <p class="text-muted small px-3 pb-3 mb-0">Applications and AI screening will be available in a future update.</p>
             {% endfor %}
           </div>
 
@@ -284,6 +292,8 @@
                 </div>
               </div>
             </div>
+            {% empty %}
+            <div class="db-card-body text-muted small">Select a candidate to view details.</div>
             {% endfor %}
           </div>
         </div>
@@ -307,6 +317,8 @@
               {% endfor %}
             </div>
           </div>
+          {% empty %}
+          <div class="col-12"><p class="text-muted small">Kanban pipeline will populate when applications are connected.</p></div>
           {% endfor %}
         </div>
       </div>
@@ -327,6 +339,8 @@
                   <td>{{ iv.time }}</td>
                   <td>{% if iv.status == 'scheduled' %}<span class="db-badge db-badge-scheduled">Scheduled</span>{% else %}<span class="db-badge db-badge-completed">Completed</span>{% endif %}</td>
                 </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted text-center py-4">No interviews scheduled yet.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
