@@ -86,7 +86,7 @@ a { text-decoration: none; }
   border-radius: var(--pill-radius);
   font-size: 14.5px;
   font-weight: 700;
-  color: #191c21;
+  color: #eab308;
   box-shadow: var(--shadow-sm);
   transition: transform 0.2s ease;
 }
@@ -108,8 +108,8 @@ a { text-decoration: none; }
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--primary-accent);
-  box-shadow: 0 0 10px rgba(245, 190, 66, 0.9);
+  background: #facc15;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.95);
   animation: pulseGold 2s infinite;
 }
 
@@ -396,10 +396,10 @@ a { text-decoration: none; }
 .brand-pill {
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px;
   background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(225, 219, 204, 0.8);
-  border-radius: var(--pill-radius); font-size: 13.5px; font-weight: 600; color: #2b2b2b;
+  border-radius: var(--pill-radius); font-size: 13.5px; font-weight: 600; color: #eab308;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
-.brand-dot { width: 8px; height: 8px; border-radius: 50%; background: #f5be42; box-shadow: 0 0 8px rgba(245, 190, 66, 0.8); }
+.brand-dot { width: 8px; height: 8px; border-radius: 50%; background: #facc15; box-shadow: 0 0 8px rgba(250, 204, 21, 0.9); }
 
 .auth-header { margin-top: 16px; margin-bottom: 18px; text-align: center; }
 .auth-title { font-size: 25px; font-weight: 700; color: #171717; letter-spacing: -0.5px; margin-bottom: 6px; }
