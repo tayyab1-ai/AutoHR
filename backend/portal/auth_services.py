@@ -145,9 +145,13 @@ def create_user_after_verification(email: str, password_hash: str) -> User:
         password_hash=password_hash,
         role="hr_manager",
         is_active=True,
+        profile_complete=False,
         created_at=now,
         updated_at=now,
     )
+    from .profile_services import ensure_profile_setup
+
+    ensure_profile_setup(user)
     user.refresh_from_db()
     if not is_valid_password_hash(user.password_hash):
         user.delete()

@@ -539,7 +539,17 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(function (result) {
           if (handleAuthFailure(result)) return;
           if (!result.ok) {
-            showJdErrors(result.data.errors || result.data);
+            var payload = result.data || {};
+            if (payload.profile_required && typeof window.openProfileWizard === "function") {
+              showJdErrors(
+                payload.errors || {
+                  profile: ["Complete your HR profile setup before continuing past the job description step."],
+                }
+              );
+              window.openProfileWizard(1);
+              return;
+            }
+            showJdErrors(payload.errors || payload);
             return;
           }
           setStepperActive(3);
@@ -578,4 +588,32 @@ document.addEventListener("DOMContentLoaded", function () {
     event.preventDefault();
     submitJob();
   });
+
+  window.loadJobDraft = function (jobId) {
+    if (!jobId) return Promise.resolve();
+    return fetch("/dashboard/jobs/" + jobId + "/draft/", {
+      headers: { Accept: "application/json" },
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { ok: res.ok, data: data };
+        });
+      })
+      .then(function (result) {
+        if (!result.ok || !result.data.ok) return;
+        currentJobId = result.data.job_id;
+        var title = result.data.title || "Draft";
+        if (result.data.has_jd && result.data.ai_generated_jd) {
+          openJdStep(title, false);
+          showJdEditor(result.data.ai_generated_jd, title);
+        } else {
+          setStepperActive(1);
+          if (formBox) formBox.classList.remove("d-none");
+          if (jdStep) jdStep.classList.add("d-none");
+          var titleInput = form.querySelector('[name="title"]');
+          if (titleInput && title) titleInput.value = title;
+          syncPreview();
+        }
+      });
+  };
 });

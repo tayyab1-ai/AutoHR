@@ -16,10 +16,10 @@ A Pakistan-localized hiring workspace for HR teams. Django serves the marketing 
 | **1 — Job intake (form A–G)** | Done | Validate on server, save `job_postings` + `job_responsibilities` |
 | **2 — AI job description (Groq)** | Done | Same-page stepper step 2; `ai_generated_jd_draft`; formatted preview + edit |
 | **2b — Apply footer** | Done | AI ends with **How to Apply** → **`Apply Here: `** (blank; URL in next phase) |
-| **3 — HR finalize description** | Done | **Post Create Google Form** → `approved_jd_content` (no real Google Form yet) |
+| **3 — HR finalize description** | Done | **Post Create Google Form** → `approved_jd_content` (blocked until profile complete) |
 | **4 — Create Google Form + link** | **Next** | Generate form, insert URL after `Apply Here:` |
 | **5 — Publish to job boards** | Not started | Rozee / Indeed / LinkedIn |
-| **Profile wizard + integrations** | Not started | Spec in [docs/auth_onboarding_integrations.md](docs/auth_onboarding_integrations.md) |
+| **Profile wizard + integrations** | In progress | 7-step wizard UI + step APIs; Gmail/Workspace/Calendar OAuth; drafts until profile complete |
 | **Applications, pipeline, interviews, reports (DB-backed)** | Not started | UI shells with empty states; no fake sample rows |
 
 **You are here:** step **4** (Google Form + link), then job boards and profile/integrations wizard.
@@ -41,7 +41,7 @@ A Pakistan-localized hiring workspace for HR teams. Django serves the marketing 
 | **Jobs** list — real rows for signed-in user’s company only | Done |
 | **Step 2 — AI JD** (Groq, preview/edit) | Done |
 | **Post Create Google Form** — save finalized JD to DB | Done (form URL not created yet) |
-| Profile wizard, company/job-board credential onboarding | Not started |
+| **Profile wizard** (steps 1–7, OAuth connect buttons, draft jobs) | In progress |
 | Google Form automation + Apply link injection | Not started |
 | Job-board publishing | Not started |
 | Applications / pipeline / interviews / reports from DB | Not started |
@@ -89,7 +89,10 @@ Run once after pulling auth changes:
 ```powershell
 cd backend
 python manage.py migrate
+python manage.py ensure_profile_schema
 ```
+
+`ensure_profile_schema` adds `users` / `companies` columns for the profile wizard (idempotent; safe to re-run).
 
 ## Pages
 

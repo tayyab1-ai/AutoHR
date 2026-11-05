@@ -1,0 +1,104 @@
+{% load static %}
+<div class="profile-wizard-backdrop d-none" data-profile-wizard-backdrop aria-hidden="true">
+  <div class="profile-wizard-modal" role="dialog" aria-modal="true" aria-labelledby="profileWizardTitle">
+    <div class="profile-wizard-head">
+      <h2 class="h5 mb-0" id="profileWizardTitle">Profile Setup</h2>
+      <div class="d-flex align-items-center gap-2">
+        <span class="profile-wizard-step-badge" data-profile-step-label>Step 1 of 7</span>
+        <button type="button" class="profile-wizard-close" data-profile-close aria-label="Close setup">&times;</button>
+      </div>
+    </div>
+    <div class="profile-wizard-steps" data-profile-step-bar>
+      {% for i in "1234567" %}
+      <span data-step-seg="{{ forloop.counter }}"></span>
+      {% endfor %}
+    </div>
+
+    <div class="alert alert-danger py-2 px-3 small d-none" data-profile-wizard-error role="alert"></div>
+    <div class="alert profile-wizard-success py-2 px-3 small d-none" data-profile-wizard-success role="status"></div>
+
+    <div data-profile-step-panel="1">
+      <h3 class="h6 fw-bold">HR Personal Information</h3>
+      <p class="text-muted small">Complete your personal information to configure your HR workspace.</p>
+      <div class="row g-2">
+        <div class="col-md-6"><label class="form-label small">First Name *</label><input class="form-control db-input" data-pf="first_name" placeholder="Enter first name"></div>
+        <div class="col-md-6"><label class="form-label small">Last Name *</label><input class="form-control db-input" data-pf="last_name" placeholder="Enter last name"></div>
+        <div class="col-12"><label class="form-label small">Verified account email</label><input class="form-control db-input" value="{{ hr.email }}" readonly disabled></div>
+        <div class="col-md-6"><label class="form-label small">Work email (optional)</label><input class="form-control db-input" type="email" data-pf="work_email" placeholder="Optional work email"></div>
+        <div class="col-md-6"><label class="form-label small">Phone Number *</label><input class="form-control db-input" data-pf="phone" placeholder="+92 300 1234567"></div>
+        <div class="col-md-6"><label class="form-label small">Job Designation *</label><input class="form-control db-input" data-pf="job_title" placeholder="e.g. HR Manager"></div>
+        <div class="col-md-6"><label class="form-label small">HR Department (optional)</label><input class="form-control db-input" data-pf="hr_department" placeholder="Human Resources"></div>
+      </div>
+    </div>
+
+    <div class="d-none" data-profile-step-panel="2">
+      <h3 class="h6 fw-bold">Company Information</h3>
+      <div class="row g-2">
+        <div class="col-md-6"><label class="form-label small">Company Name *</label><input class="form-control db-input" data-pf="company_name" value="{{ company_name }}"></div>
+        <div class="col-md-6"><label class="form-label small">Company Website *</label><input class="form-control db-input" data-pf="company_website" placeholder="https://"></div>
+        <div class="col-md-6"><label class="form-label small">Industry *</label><input class="form-control db-input" data-pf="industry" placeholder="Software & IT"></div>
+        <div class="col-md-6"><label class="form-label small">Company Size *</label><input class="form-control db-input" data-pf="company_size" placeholder="51-200"></div>
+        <div class="col-md-6"><label class="form-label small">Company Type *</label><input class="form-control db-input" data-pf="company_type" placeholder="Private Limited"></div>
+        <div class="col-md-6"><label class="form-label small">Founded Year</label><input class="form-control db-input" type="number" data-pf="founded_year"></div>
+        <div class="col-12"><label class="form-label small">Company Description *</label><textarea class="form-control db-input" rows="3" data-pf="company_description"></textarea></div>
+        <div class="col-12"><label class="form-label small">Office Address</label><textarea class="form-control db-input" rows="2" data-pf="office_address"></textarea></div>
+        <div class="col-12"><label class="form-label small">Company LinkedIn URL</label><input class="form-control db-input" data-pf="company_linkedin_url" placeholder="https://linkedin.com/company/..."></div>
+      </div>
+    </div>
+
+    <div class="d-none" data-profile-step-panel="3">
+      <div class="integration-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <strong><i class="bi bi-envelope-fill me-1 text-warning"></i> Gmail Integration</strong>
+          <span class="integration-badge not-connected" data-int-badge="gmail">Not connected</span>
+        </div>
+        <p class="small text-muted mb-2">Connect your Gmail account to send recruitment emails automatically.</p>
+        <a class="btn btn-db-primary w-100 justify-content-center" href="{% url 'google_oauth_start' %}?flow=gmail">Connect Gmail</a>
+      </div>
+      <p class="small text-muted mb-0">OAuth only — we never ask for your Gmail password. Tokens are encrypted at rest.</p>
+    </div>
+
+    <div class="d-none" data-profile-step-panel="4">
+      <div class="integration-card">
+        <div class="d-flex justify-content-between mb-2"><strong>Google Workspace</strong><span class="integration-badge not-connected" data-int-badge="google_workspace">Not connected</span></div>
+        <p class="small text-muted">Forms, Sheets, and Drive can share one Google OAuth connection.</p>
+        <a class="btn btn-db-secondary w-100 justify-content-center" href="{% url 'google_oauth_start' %}?flow=google_workspace">Connect Google Workspace</a>
+      </div>
+    </div>
+
+    <div class="d-none" data-profile-step-panel="5">
+      <div class="integration-card">
+        <div class="d-flex justify-content-between mb-2"><strong>Google Calendar & Meet</strong><span class="integration-badge not-connected" data-int-badge="google_calendar">Not connected</span></div>
+        <a class="btn btn-db-secondary w-100 justify-content-center" href="{% url 'google_oauth_start' %}?flow=google_calendar">Connect Calendar</a>
+      </div>
+      <div class="row g-2 mt-2">
+        <div class="col-md-6"><label class="form-label small">Default meeting duration (minutes)</label><input class="form-control db-input" type="number" data-pf="meeting_duration" value="45"></div>
+        <div class="col-md-6"><label class="form-label small">Default platform</label><select class="form-select db-select" data-pf="meeting_platform"><option>Google Meet</option><option>Zoom</option></select></div>
+      </div>
+    </div>
+
+    <div class="d-none" data-profile-step-panel="6">
+      <h3 class="h6 fw-bold">Recruitment Automation Preferences</h3>
+      <div class="form-check"><input class="form-check-input" type="checkbox" data-pf="send_application_confirmation" checked id="pf_c1"><label class="form-check-label" for="pf_c1">Send application confirmation</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" data-pf="send_shortlisting" checked id="pf_c2"><label class="form-check-label" for="pf_c2">Send shortlisting emails</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" data-pf="send_rejection" checked id="pf_c3"><label class="form-check-label" for="pf_c3">Send rejection emails</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" data-pf="send_interview_invites" checked id="pf_c4"><label class="form-check-label" for="pf_c4">Send interview invitations</label></div>
+      <div class="mt-2"><label class="form-label small">Sender display name *</label><input class="form-control db-input" data-pf="sender_display_name" value="{{ hr.full_name }}"></div>
+    </div>
+
+    <div class="d-none" data-profile-step-panel="7">
+      <h3 class="h6 fw-bold">Review & Complete Setup</h3>
+      <ul class="small mb-3" data-profile-summary></ul>
+      <div class="form-check"><input class="form-check-input" type="checkbox" data-pf="accept_terms" id="pf_terms"><label class="form-check-label" for="pf_terms">I accept the Terms & Conditions *</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" data-pf="accept_privacy" id="pf_priv"><label class="form-check-label" for="pf_priv">I accept the Privacy Policy *</label></div>
+    </div>
+
+    <div class="profile-wizard-nav">
+      <button type="button" class="btn btn-link" data-profile-prev>Back</button>
+      <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <button type="button" class="btn btn-db-secondary btn-sm" data-profile-save-exit>Save &amp; exit</button>
+        <button type="button" class="btn btn-db-primary btn-sm" data-profile-next>Next Step <i class="bi bi-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>

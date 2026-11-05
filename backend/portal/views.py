@@ -1,12 +1,15 @@
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET, require_POST
 
 from .decorators import hr_login_required
 from .forms import JobIntakeForm
 from .models import JobPosting
+from .profile_services import ensure_profile_setup, is_profile_complete
 from .services import (
     create_job_posting,
+    draft_jobs_for_user,
     generate_ai_job_description,
     get_job_for_company,
     jobs_for_dashboard,
@@ -37,18 +40,33 @@ def auth_page(request, mode="signup"):
     return render(request, "auth.html", context)
 
 
+@ensure_csrf_cookie
 @hr_login_required
 def dashboard(request):
     company, user = _session_actor(request)
+    ensure_profile_setup(user)
     jobs = jobs_for_dashboard(company)
-    shell = workspace_shell(active_jobs=len(jobs))
+    drafts = draft_jobs_for_user(company, user)
+    draft_rows = [
+        {
+            "id": str(j.id),
+            "title": j.title,
+            "updated": j.updated_at.strftime("%d %b %Y %H:%M") if j.updated_at else "",
+            "has_jd": bool((j.ai_generated_jd_draft or "").strip()),
+        }
+        for j in drafts
+    ]
+    shell = workspace_shell(active_jobs=len([j for j in jobs if j.get("status") != "draft"]))
     hr = build_hr_profile(user, company)
+    pcomplete = is_profile_complete(user)
 
     context = {
         "hr": hr,
         "company_name": company.name,
         "job_form": JobIntakeForm(company_name=company.name),
         "jobs": jobs,
+        "draft_jobs": draft_rows,
+        "profile_complete": pcomplete,
         **shell,
     }
     return render(request, "dashboard.html", context)
@@ -122,7 +140,20 @@ def generate_job_jd(request, job_id):
 @hr_login_required
 @require_POST
 def prepare_google_form(request, job_id):
-    company, _user = _session_actor(request)
+    company, user = _session_actor(request)
+    if not is_profile_complete(user):
+        return JsonResponse(
+            {
+                "ok": False,
+                "profile_required": True,
+                "errors": {
+                    "profile": [
+                        "Complete your HR profile setup before continuing past the job description step."
+                    ]
+                },
+            },
+            status=403,
+        )
     try:
         job = get_job_for_company(job_id, company)
     except JobPosting.DoesNotExist:
@@ -147,5 +178,41 @@ def prepare_google_form(request, job_id):
             "job_id": str(job.id),
             "finalized_jd": job.approved_jd_content,
             "message": "Final job description saved. Google Form creation will be added in the next step.",
+        }
+    )
+
+
+@hr_login_required
+@require_POST
+def delete_job_draft(request, job_id):
+    company, user = _session_actor(request)
+    try:
+        job = get_job_for_company(job_id, company)
+    except JobPosting.DoesNotExist:
+        return JsonResponse({"ok": False, "errors": {"job": ["Job not found."]}}, status=404)
+    if job.created_by_id != user.id or job.status != "draft":
+        return JsonResponse({"ok": False, "errors": {"job": ["Only your draft jobs can be deleted."]}}, status=403)
+    job.delete()
+    return JsonResponse({"ok": True, "message": "Draft deleted."})
+
+
+@hr_login_required
+@require_GET
+def get_job_draft(request, job_id):
+    company, user = _session_actor(request)
+    try:
+        job = get_job_for_company(job_id, company)
+    except JobPosting.DoesNotExist:
+        return JsonResponse({"ok": False, "errors": {"job": ["Job not found."]}}, status=404)
+    if job.created_by_id != user.id:
+        return JsonResponse({"ok": False, "errors": {"job": ["Not allowed."]}}, status=403)
+    return JsonResponse(
+        {
+            "ok": True,
+            "job_id": str(job.id),
+            "title": job.title,
+            "status": job.status,
+            "ai_generated_jd": job.ai_generated_jd_draft or "",
+            "has_jd": bool((job.ai_generated_jd_draft or "").strip()),
         }
     )

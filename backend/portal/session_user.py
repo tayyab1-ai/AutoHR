@@ -4,11 +4,19 @@
 def build_hr_profile(db_user, company) -> dict:
     parts = (db_user.full_name or "").split()
     initials = "".join(p[0].upper() for p in parts[:2] if p) or "HR"
+    first = getattr(db_user, "first_name", None) or (parts[0] if parts else "")
+    last = getattr(db_user, "last_name", None) or (" ".join(parts[1:]) if len(parts) > 1 else "")
+    work_email = getattr(db_user, "work_email", None)
     return {
         "full_name": db_user.full_name,
+        "first_name": first or "",
+        "last_name": last or "",
         "job_title": db_user.job_title or "HR",
         "email": db_user.email,
+        "work_email": work_email or "—",
+        "hr_department": getattr(db_user, "hr_department", None) or "—",
         "phone": db_user.phone or "—",
+        "profile_complete": bool(getattr(db_user, "profile_complete", False)),
         "company_name": company.name,
         "company_website": company.website or "—",
         "industry": company.industry or "—",

@@ -20,6 +20,9 @@ class Company(models.Model):
     indeed_password_encrypted = models.TextField(blank=True, null=True)
     rozee_email = models.EmailField(blank=True, null=True)
     rozee_password_encrypted = models.TextField(blank=True, null=True)
+    company_type = models.CharField(max_length=80, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    founded_year = models.IntegerField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -39,6 +42,13 @@ class User(models.Model):
     password_hash = models.CharField(max_length=255)
     phone = models.CharField(max_length=30, blank=True, null=True)
     job_title = models.CharField(max_length=120, blank=True, null=True)
+    first_name = models.CharField(max_length=80, blank=True, null=True)
+    last_name = models.CharField(max_length=80, blank=True, null=True)
+    work_email = models.EmailField(blank=True, null=True)
+    hr_department = models.CharField(max_length=80, blank=True, null=True)
+    profile_complete = models.BooleanField(default=False)
+    accepted_terms_at = models.DateTimeField(blank=True, null=True)
+    accepted_privacy_at = models.DateTimeField(blank=True, null=True)
     role = models.CharField(max_length=32, default="hr_manager")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField()
@@ -142,3 +152,7 @@ class JobResponsibility(models.Model):
     class Meta:
         managed = False
         db_table = "job_responsibilities"
+
+
+# Django-managed profile & integration tables
+from .profile_models import IntegrationConnection, OAuthCredential, ProfileSetup  # noqa: E402, F401

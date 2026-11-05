@@ -1,0 +1,178 @@
+/* Profile setup wizard — matches AutoHR creme / amber theme */
+
+.profile-wizard-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(21, 26, 34, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
+}
+
+.profile-wizard-backdrop.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.profile-wizard-backdrop.d-none {
+  display: none !important;
+}
+
+.profile-wizard-modal {
+  background: var(--bg-surface-warm, #fcfaf4);
+  border: 1px solid var(--border-card, #e4dfd2);
+  border-radius: var(--radius-md, 18px);
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--shadow-lg, 0 25px 60px -10px rgba(18, 23, 31, 0.16));
+  padding: 1.5rem 1.75rem 1.25rem;
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile-wizard-backdrop.is-open .profile-wizard-modal {
+  transform: translateY(0) scale(1);
+}
+
+.profile-wizard-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  gap: 0.75rem;
+}
+
+.profile-wizard-head h2 {
+  font-weight: 700;
+  color: var(--text-main, #191c21);
+}
+
+.profile-wizard-step-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--pill-radius, 9999px);
+  background: var(--primary-accent-subtle, rgba(245, 190, 66, 0.15));
+  color: #92400e;
+  border: 1px solid rgba(245, 190, 66, 0.35);
+  white-space: nowrap;
+}
+
+.profile-wizard-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #8c8f96);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm, 12px);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.profile-wizard-close:hover {
+  color: var(--text-main);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.profile-wizard-steps {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 1.25rem;
+}
+
+.profile-wizard-steps span {
+  flex: 1;
+  height: 5px;
+  border-radius: var(--pill-radius, 9999px);
+  background: var(--border-subtle, #eae5d8);
+  transition: background 0.35s ease, transform 0.35s ease;
+}
+
+.profile-wizard-steps span.is-done {
+  background: var(--primary-accent, #f5be42);
+}
+
+.profile-wizard-steps span.is-active {
+  background: linear-gradient(90deg, var(--primary-accent, #f5be42), #e8b031);
+  transform: scaleY(1.15);
+}
+
+.profile-wizard-modal .form-control,
+.profile-wizard-modal .form-select {
+  border-radius: var(--pill-radius, 9999px);
+  border-color: var(--border-subtle, #eae5d8);
+  font-size: 13px;
+  padding: 0.5rem 1rem;
+}
+
+.profile-wizard-modal textarea.form-control {
+  border-radius: var(--radius-sm, 12px);
+}
+
+.integration-card {
+  border: 1px solid var(--border-card, #e4dfd2);
+  border-radius: var(--radius-sm, 12px);
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.75rem;
+  background: var(--bg-surface, #fff);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease;
+}
+
+.integration-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.integration-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--pill-radius, 9999px);
+}
+
+.integration-badge.connected {
+  background: rgba(1, 65, 28, 0.1);
+  color: var(--pk-green, #01411c);
+}
+
+.integration-badge.not-connected {
+  background: var(--primary-accent-subtle, rgba(245, 190, 66, 0.15));
+  color: #92400e;
+}
+
+.profile-wizard-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle, #eae5d8);
+}
+
+.profile-wizard-nav .btn-link {
+  color: var(--text-secondary, #5f6368);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.profile-wizard-nav .btn-link:hover {
+  color: var(--text-main);
+}
+
+.profile-wizard-success {
+  background: rgba(1, 65, 28, 0.08);
+  border: 1px solid rgba(1, 65, 28, 0.2);
+  color: var(--pk-green, #01411c);
+  border-radius: var(--radius-sm, 12px);
+}

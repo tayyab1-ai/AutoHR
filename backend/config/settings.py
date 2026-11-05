@@ -48,6 +48,8 @@ SECRET_KEY = os.environ.get(
     "dev-only-secret-key-for-autohr-frontend-demo-change-me",
 )
 
+TOKEN_ENCRYPTION_KEY = os.environ.get("TOKEN_ENCRYPTION_KEY", "")
+
 DEBUG = True
 
 ALLOWED_HOSTS = ["*"]

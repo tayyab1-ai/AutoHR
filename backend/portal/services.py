@@ -98,8 +98,10 @@ def jobs_for_dashboard(company):
         elif job.status == "closed":
             status = "closed"
 
+        has_jd = bool((job.ai_generated_jd_draft or "").strip())
         rows.append(
             {
+                "id": str(job.id),
                 "title": job.title,
                 "department": _DEPT_LABELS.get(job.department, job.department),
                 "city": job.city,
@@ -109,9 +111,21 @@ def jobs_for_dashboard(company):
                 "status": status,
                 "posted": job.posting_date.strftime("%d %b %Y"),
                 "boards": [],
+                "is_draft": job.status == "draft",
+                "has_jd": has_jd,
+                "can_publish": has_jd and not (job.approved_jd_content or "").strip(),
             }
         )
     return rows
+
+
+def draft_jobs_for_user(company, user):
+    return [
+        j
+        for j in JobPosting.objects.filter(company=company, created_by=user, status="draft").order_by(
+            "-updated_at"
+        )[:30]
+    ]
 
 
 def get_job_for_company(job_id, company) -> JobPosting:

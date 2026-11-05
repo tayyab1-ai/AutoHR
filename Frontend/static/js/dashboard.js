@@ -130,4 +130,47 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
+  var draftCfg = document.getElementById("dashboard-draft-config");
+  var deleteUrlTemplate = draftCfg ? draftCfg.getAttribute("data-delete-url-template") : "";
+  var jobIdPlaceholder = draftCfg ? draftCfg.getAttribute("data-job-id-placeholder") : "";
+
+  function jobApiPath(template, jobId, fallback) {
+    if (!template) return fallback.replace("{id}", jobId);
+    return template.split(jobIdPlaceholder).join(jobId);
+  }
+
+  function getCsrf() {
+    var match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  document.querySelectorAll("[data-draft-continue]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.getAttribute("data-draft-continue");
+      activatePanel("create-job");
+      if (typeof window.loadJobDraft === "function") {
+        window.loadJobDraft(id);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-draft-delete]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.getAttribute("data-draft-delete");
+      if (!window.confirm("Delete this draft? This cannot be undone.")) return;
+      fetch(jobApiPath(deleteUrlTemplate, id, "/dashboard/jobs/{id}/delete/"), {
+        method: "POST",
+        headers: { "X-CSRFToken": getCsrf(), Accept: "application/json" },
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data.ok) return;
+          var row = document.querySelector('[data-draft-row="' + id + '"]');
+          if (row) row.remove();
+        });
+    });
+  });
+
 });

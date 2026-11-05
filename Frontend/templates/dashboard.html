@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% load asset_version %}
 {% block title %}Dashboard — AutoHR{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static_v 'css/dashboard.css' %}">{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static_v 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static_v 'css/profile_wizard.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="dashboard-root">
@@ -83,6 +86,13 @@
         <h1 class="db-title" data-page-title>Dashboard</h1>
         <p class="db-subtitle" data-page-subtitle>Here's what's happening across your recruitment pipeline today.</p>
       </div>
+
+      {% if not profile_complete %}
+      <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3" role="alert">
+        <span><strong>Complete your profile</strong> to publish jobs and connect Google services. You can still create jobs and save AI descriptions as drafts.</span>
+        <button type="button" class="btn btn-db-primary btn-sm" onclick="window.openProfileWizard && window.openProfileWizard()">Continue setup</button>
+      </div>
+      {% endif %}
 
       <!-- ================= PANEL: OVERVIEW ================= -->
       <div class="db-panel is-active" data-panel="overview">
@@ -180,6 +190,33 @@
           <select class="db-select"><option>All Cities</option><option>Lahore</option><option>Karachi</option><option>Islamabad</option><option>Rawalpindi</option></select>
           <button class="btn-db-primary ms-auto" data-go-panel="create-job"><i class="bi bi-plus-lg"></i> New Job</button>
         </div>
+
+        {% if draft_jobs %}
+        <div class="db-card mb-3">
+          <div class="db-card-header">
+            <h2 class="db-card-title"><i class="bi bi-file-earmark-text text-warning"></i> Your drafts</h2>
+            <span class="text-muted small">Finish profile setup to continue past the job description step.</span>
+          </div>
+          <div class="db-table-wrapper">
+            <table class="db-table">
+              <thead><tr><th>Role</th><th>Last updated</th><th>JD</th><th></th></tr></thead>
+              <tbody>
+                {% for d in draft_jobs %}
+                <tr data-draft-row="{{ d.id }}">
+                  <td class="fw-semibold">{{ d.title }}</td>
+                  <td class="text-muted">{{ d.updated }}</td>
+                  <td>{% if d.has_jd %}<span class="db-badge db-badge-live">Ready</span>{% else %}<span class="text-muted">Pending</span>{% endif %}</td>
+                  <td class="text-end text-nowrap">
+                    <button type="button" class="btn-db-secondary btn-sm" data-draft-continue="{{ d.id }}">Continue</button>
+                    <button type="button" class="btn btn-link btn-sm text-danger" data-draft-delete="{{ d.id }}">Delete</button>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
 
         <div class="db-card">
           <div class="db-table-wrapper">
@@ -374,40 +411,119 @@
       <div class="db-panel" data-panel="account">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
           <div class="d-flex align-items-center gap-3">
-            <span class="avatar-circle" style="width:56px;height:56px;font-size:18px;">{{ hr.initials }}</span>
+            <span class="avatar-circle" data-account-avatar style="width:56px;height:56px;font-size:18px;">{{ hr.initials }}</span>
             <div>
-              <h2 class="h4 mb-0">{{ hr.full_name }}</h2>
-              <div class="text-muted small">{{ hr.job_title }} at {{ hr.company_name }} &middot; {{ hr.city }}, {{ hr.country }}</div>
+              <h2 class="h4 mb-0" data-account-header-name>{{ hr.full_name }}</h2>
+              <div class="text-muted small" data-account-header-sub>{{ hr.job_title }} at {{ hr.company_name }} &middot; {{ hr.city }}, {{ hr.country }}</div>
             </div>
           </div>
-          <a href="{% url 'logout' %}" class="btn-db-secondary"><i class="bi bi-box-arrow-right"></i> Sign out</a>
+          <div class="d-flex flex-wrap gap-2">
+            {% if not profile_complete %}
+            <button type="button" class="btn btn-db-primary btn-sm" onclick="window.openProfileWizard && window.openProfileWizard()">Complete profile setup</button>
+            {% endif %}
+            <a href="{% url 'logout' %}" class="btn-db-secondary"><i class="bi bi-box-arrow-right"></i> Sign out</a>
+          </div>
         </div>
 
+        <div class="alert d-none mb-3 small account-toast" data-account-toast role="status"></div>
+
         <div class="db-card">
-          <div class="db-card-header"><h2 class="db-card-title">Signed-in HR Account</h2></div>
+          <div class="db-card-header"><h2 class="db-card-title">Your account</h2></div>
           <div class="db-card-body">
             <div class="db-preview-list">
               <dl>
-                <div class="pv-row"><dt>Full name</dt><dd>{{ hr.full_name }}</dd></div>
-                <div class="pv-row"><dt>Work email</dt><dd>{{ hr.email }}</dd></div>
-                <div class="pv-row"><dt>Job title</dt><dd>{{ hr.job_title }}</dd></div>
-                <div class="pv-row"><dt>Phone</dt><dd>{{ hr.phone }}</dd></div>
-                <div class="pv-row"><dt>Company</dt><dd>{{ hr.company_name }}</dd></div>
-                <div class="pv-row"><dt>Website</dt><dd>{{ hr.company_website }}</dd></div>
-                <div class="pv-row"><dt>Industry</dt><dd>{{ hr.industry }}</dd></div>
-                <div class="pv-row"><dt>Company size</dt><dd>{{ hr.company_size }} employees</dd></div>
-                <div class="pv-row"><dt>Country</dt><dd>{{ hr.country }}</dd></div>
-                <div class="pv-row"><dt>City</dt><dd>{{ hr.city }}</dd></div>
-                <div class="pv-row"><dt>Office address</dt><dd>{{ hr.office_address }}</dd></div>
-                <div class="pv-row"><dt>LinkedIn profile</dt><dd>{{ hr.linkedin_profile_url }}</dd></div>
-                <div class="pv-row"><dt>LinkedIn email</dt><dd>{{ hr.linkedin_email }}</dd></div>
-                <div class="pv-row"><dt>LinkedIn password</dt><dd><i class="bi bi-shield-lock-fill text-success"></i> Saved and encrypted</dd></div>
-                <div class="pv-row"><dt>Indeed email</dt><dd>{{ hr.indeed_email }}</dd></div>
-                <div class="pv-row"><dt>Indeed password</dt><dd><i class="bi bi-shield-lock-fill text-success"></i> Saved and encrypted</dd></div>
-                <div class="pv-row"><dt>Rozee.pk email</dt><dd>{{ hr.rozee_email }}</dd></div>
-                <div class="pv-row"><dt>Rozee.pk password</dt><dd><i class="bi bi-shield-lock-fill text-success"></i> Saved and encrypted</dd></div>
+                <div class="pv-row" data-account-row="first_name">
+                  <dt>First name <button type="button" class="pv-edit-btn" data-edit-trigger="first_name" aria-label="Edit first name"><i class="bi bi-pencil"></i></button></dt>
+                  <dd data-display-wrap><span data-display="first_name">{{ hr.first_name|default:"—" }}</span></dd>
+                  <dd class="d-none pv-edit-wrap" data-edit-wrap>
+                    <input class="db-input w-100 mb-2" type="text" data-edit-input="first_name" value="{{ hr.first_name }}">
+                    <button type="button" class="btn btn-db-primary btn-sm me-1" data-edit-save="first_name">Save</button>
+                    <button type="button" class="btn btn-db-secondary btn-sm" data-edit-cancel="first_name">Cancel</button>
+                  </dd>
+                </div>
+                <div class="pv-row" data-account-row="last_name">
+                  <dt>Last name <button type="button" class="pv-edit-btn" data-edit-trigger="last_name" aria-label="Edit last name"><i class="bi bi-pencil"></i></button></dt>
+                  <dd data-display-wrap><span data-display="last_name">{{ hr.last_name|default:"—" }}</span></dd>
+                  <dd class="d-none pv-edit-wrap" data-edit-wrap>
+                    <input class="db-input w-100 mb-2" type="text" data-edit-input="last_name" value="{{ hr.last_name }}">
+                    <button type="button" class="btn btn-db-primary btn-sm me-1" data-edit-save="last_name">Save</button>
+                    <button type="button" class="btn btn-db-secondary btn-sm" data-edit-cancel="last_name">Cancel</button>
+                  </dd>
+                </div>
+                <div class="pv-row"><dt>Account email</dt><dd data-display="email">{{ hr.email }}</dd></div>
+                <div class="pv-row" data-account-row="work_email">
+                  <dt>Work email <button type="button" class="pv-edit-btn" data-edit-trigger="work_email" aria-label="Edit work email"><i class="bi bi-pencil"></i></button></dt>
+                  <dd data-display-wrap><span data-display="work_email">{{ hr.work_email }}</span></dd>
+                  <dd class="d-none pv-edit-wrap" data-edit-wrap>
+                    <input class="db-input w-100 mb-2" type="email" data-edit-input="work_email" value="{% if hr.work_email != '—' %}{{ hr.work_email }}{% endif %}">
+                    <button type="button" class="btn btn-db-primary btn-sm me-1" data-edit-save="work_email">Save</button>
+                    <button type="button" class="btn btn-db-secondary btn-sm" data-edit-cancel="work_email">Cancel</button>
+                  </dd>
+                </div>
+                <div class="pv-row" data-account-row="job_title">
+                  <dt>Job title <button type="button" class="pv-edit-btn" data-edit-trigger="job_title" aria-label="Edit job title"><i class="bi bi-pencil"></i></button></dt>
+                  <dd data-display-wrap><span data-display="job_title">{{ hr.job_title }}</span></dd>
+                  <dd class="d-none pv-edit-wrap" data-edit-wrap>
+                    <input class="db-input w-100 mb-2" type="text" data-edit-input="job_title" value="{{ hr.job_title }}">
+                    <button type="button" class="btn btn-db-primary btn-sm me-1" data-edit-save="job_title">Save</button>
+                    <button type="button" class="btn btn-db-secondary btn-sm" data-edit-cancel="job_title">Cancel</button>
+                  </dd>
+                </div>
+                <div class="pv-row" data-account-row="phone">
+                  <dt>Phone <button type="button" class="pv-edit-btn" data-edit-trigger="phone" aria-label="Edit phone"><i class="bi bi-pencil"></i></button></dt>
+                  <dd data-display-wrap><span data-display="phone">{{ hr.phone }}</span></dd>
+                  <dd class="d-none pv-edit-wrap" data-edit-wrap>
+                    <input class="db-input w-100 mb-2" type="text" data-edit-input="phone" value="{% if hr.phone != '—' %}{{ hr.phone }}{% endif %}">
+                    <button type="button" class="btn btn-db-primary btn-sm me-1" data-edit-save="phone">Save</button>
+                    <button type="button" class="btn btn-db-secondary btn-sm" data-edit-cancel="phone">Cancel</button>
+                  </dd>
+                </div>
+                <div class="pv-row" data-account-row="hr_department">
+                  <dt>HR department <button type="button" class="pv-edit-btn" data-edit-trigger="hr_department" aria-label="Edit department"><i class="bi bi-pencil"></i></button></dt>
+                  <dd data-display-wrap><span data-display="hr_department">{{ hr.hr_department }}</span></dd>
+                  <dd class="d-none pv-edit-wrap" data-edit-wrap>
+                    <input class="db-input w-100 mb-2" type="text" data-edit-input="hr_department" value="{% if hr.hr_department != '—' %}{{ hr.hr_department }}{% endif %}">
+                    <button type="button" class="btn btn-db-primary btn-sm me-1" data-edit-save="hr_department">Save</button>
+                    <button type="button" class="btn btn-db-secondary btn-sm" data-edit-cancel="hr_department">Cancel</button>
+                  </dd>
+                </div>
+                <div class="pv-row"><dt>Company</dt><dd data-display="company_name">{{ hr.company_name }}</dd></div>
+                <div class="pv-row"><dt>Website</dt><dd data-display="company_website">{{ hr.company_website }}</dd></div>
+                <div class="pv-row"><dt>Industry</dt><dd data-display="industry">{{ hr.industry }}</dd></div>
+                <div class="pv-row"><dt>Company size</dt><dd><span data-display="company_size">{{ hr.company_size }}</span> employees</dd></div>
+                <div class="pv-row"><dt>Country</dt><dd data-display="country">{{ hr.country }}</dd></div>
+                <div class="pv-row"><dt>City</dt><dd data-display="city">{{ hr.city }}</dd></div>
+                <div class="pv-row"><dt>Office address</dt><dd data-display="office_address">{{ hr.office_address }}</dd></div>
+                <div class="pv-row"><dt>Company LinkedIn</dt><dd data-display="linkedin_profile_url">{{ hr.linkedin_profile_url }}</dd></div>
               </dl>
             </div>
+          </div>
+        </div>
+
+        <div class="db-card account-danger-zone mt-3">
+          <div class="db-card-header"><h2 class="db-card-title text-danger">Delete account</h2></div>
+          <div class="db-card-body">
+            <p class="small text-muted mb-3">
+              Permanently delete your AutoHR account, job drafts, profile setup, and integrations.
+              We will send a verification code to <strong>{{ hr.email }}</strong> before anything is removed.
+            </p>
+            <button type="button" class="btn btn-outline-danger btn-sm" data-delete-account-start>Delete my account</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="account-delete-backdrop d-none" data-delete-account-backdrop aria-hidden="true">
+        <div class="account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
+          <button type="button" class="profile-wizard-close" data-delete-account-close aria-label="Close">&times;</button>
+          <h2 class="h5 fw-bold mb-1" id="deleteAccountTitle">Confirm account deletion</h2>
+          <p class="small text-muted mb-3">Enter the 6-digit code sent to <strong data-delete-email-display>{{ hr.email }}</strong>.</p>
+          <div class="alert py-2 px-3 small d-none" data-delete-otp-status role="alert"></div>
+          <div class="small text-muted mb-2">Code expires in <span data-delete-otp-timer>02:00</span></div>
+          <input type="text" class="db-input w-100 mb-3" data-delete-otp-input inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code">
+          <button type="button" class="btn btn-danger w-100 mb-2" data-delete-otp-verify>Verify and delete account</button>
+          <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-link btn-sm" data-delete-otp-resend disabled>Resend code</button>
+            <button type="button" class="btn btn-link btn-sm" data-delete-account-cancel>Cancel</button>
           </div>
         </div>
       </div>
@@ -415,10 +531,28 @@
     </main>
   </div>
 </div>
+
+{% include "partials/profile_wizard.html" %}
 {% endblock %}
 
 {% block extra_js %}
+<script
+  id="dashboard-draft-config"
+  type="application/json"
+  data-draft-url-template="{% url 'get_job_draft' job_id='00000000-0000-0000-0000-000000000001' %}"
+  data-delete-url-template="{% url 'delete_job_draft' job_id='00000000-0000-0000-0000-000000000001' %}"
+  data-job-id-placeholder="00000000-0000-0000-0000-000000000001"
+></script>
+<script>
+  window.AUTOHR_ACCOUNT = {
+    deleteSendOtpUrl: "{% url 'account_delete_send_otp' %}",
+    deleteResendOtpUrl: "{% url 'account_delete_resend_otp' %}",
+    deleteVerifyUrl: "{% url 'account_delete_verify' %}"
+  };
+</script>
 <script src="{% static_v 'js/dashboard.js' %}"></script>
+<script src="{% static_v 'js/profile_wizard.js' %}"></script>
+<script src="{% static_v 'js/account_profile.js' %}"></script>
 <script src="{% static_v 'js/create_job.js' %}"></script>
 <script>
   // Resolve the chart bars' final height (computed server-side via widthratio)
