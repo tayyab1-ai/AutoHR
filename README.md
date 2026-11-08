@@ -10,9 +10,8 @@ A Pakistan-localized hiring workspace for HR teams. Django serves the marketing 
 
 | Pipeline phase | Status | Notes |
 | --- | --- | --- |
-| **Auth — signup (email OTP)** | Done | 6-digit code, 2-minute cache TTL, 3 attempts; user created only after OTP |
-| **Auth — login / sessions** | Done | Email + password, PostgreSQL `users.password_hash`, multi-device sessions |
-| **Auth — forgot password** | Done | Email OTP resets password for existing accounts |
+| **Auth — Google sign-in** | Done | One button; new users provisioned in PostgreSQL; verified Google email required |
+| **Auth — sessions** | Done | Django session per device; list/revoke under **Account → Signed-in devices** |
 | **1 — Job intake (form A–G)** | Done | Validate on server, save `job_postings` + `job_responsibilities` |
 | **2 — AI job description (Groq)** | Done | Same-page stepper step 2; `ai_generated_jd_draft`; formatted preview + edit |
 | **2b — Apply footer** | Done | AI ends with **How to Apply** → **`Apply Here: `** (blank; URL in next phase) |
@@ -29,9 +28,8 @@ A Pakistan-localized hiring workspace for HR teams. Django serves the marketing 
 | Area | Status |
 | --- | --- |
 | Marketing landing page (public) | Done |
-| **Signup** — email, password, OTP modal (Fetch API, no page reload on OTP step) | Done |
-| **Login** — email/password, Django session | Done |
-| **Forgot password** — OTP on login page | Done |
+| **Sign up / Sign in** — Google OAuth only | Done |
+| **Multi-device sessions** — track & revoke | Done |
 | **Protected dashboard** — login required; no anonymous demo actor | Done |
 | HR dashboard shell (eight panels on one page) | Done |
 | Visual system (type, color, layout, motion) | Done |
@@ -48,43 +46,53 @@ A Pakistan-localized hiring workspace for HR teams. Django serves the marketing 
 
 ## Authentication
 
-### Signup (`/register/`)
+AutoHR uses **Google only**. There is no email/password login, OTP, or SMTP.
 
-1. Enter **email**, **password**, **confirm password** (client + server rules: 8+ chars, at least one letter and one number).
-2. **Sign up** sends a 6-digit OTP via **Gmail SMTP** (settings in repo-root `.env`).
-3. OTP **modal**: countdown **2:00**, **resend** after expiry, **change email**, max **3** wrong attempts then lockout.
-4. On success, account is created in PostgreSQL (`users` + placeholder `companies` row); redirect to **login** with success message.
-5. Passwords are hashed with Django’s default hasher; plain text is never stored.
+### Sign up / Sign in (`/login/`, `/register/`)
 
-### Login (`/login/`)
+1. Click **Continue with Google** (same flow for new and returning users).
+2. Google returns a **verified** email and account id (`users.google_sub`).
+3. **New users:** placeholder `companies` row + `users` row + profile setup record.
+4. **Existing users:** matched by `google_sub`, or by email (links `google_sub` on first Google sign-in).
+5. Django creates a **session cookie** (14-day sliding window, httpOnly). Each browser/device is a separate session.
 
-- Email + password; session via `login()` and custom `HrEmailBackend` against `users`.
-- Failed login shows a generic error; existing emails hint at **Forgot password**.
-- After login, **`/dashboard/`** and job POST endpoints use the **session user’s** `company_id` / `user_id`.
+### Multi-device sessions
 
-### Forgot password
+- **Account → Signed-in devices** lists active sessions (label, last active, IP).
+- **Sign out** on one device or **Sign out other devices** without affecting the current browser.
+- Revoking deletes the server-side Django session for that device.
 
-- On the login page: **Forgot password?** → new password + confirm → OTP email → verify → sign in with the new password.
+### Account deletion
+
+- **Account → Delete account** — type `DELETE` and your account email (no email OTP).
 
 ### API routes (auth)
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/auth/signup/send-otp/` | Start signup, send OTP |
-| POST | `/auth/signup/verify-otp/` | Verify OTP, create user |
-| POST | `/auth/signup/resend-otp/` | Resend signup OTP |
-| POST | `/auth/password/send-otp/` | Start password reset |
-| POST | `/auth/password/verify-otp/` | Confirm reset OTP |
-| POST | `/auth/password/resend-otp/` | Resend reset OTP |
-| POST | `/auth/login/` | JSON login |
+| GET | `/auth/google/start/` | Redirect to Google (optional `?next=/path`) |
+| GET | `/auth/google/callback/` | OAuth callback (do not open manually) |
 | POST | `/auth/logout/` | JSON logout |
-| GET | `/logout/` | Sign out redirect to home |
+| GET | `/logout/` | Logout redirect to home |
+| GET | `/account/api/sessions/` | List devices |
+| POST | `/account/api/sessions/revoke/` | Revoke one session (`session_id`) |
+| POST | `/account/api/sessions/revoke-others/` | Revoke all other sessions |
 
-**Code:** `backend/portal/auth_views.py`, `auth_services.py`, `auth_backend.py`, `auth_user.py`, `decorators.py`; UI: `frontend/templates/auth.html`, `frontend/static/js/auth.js`.
+**Code:** `backend/portal/google_auth_views.py`, `auth_services.py`, `auth_backend.py`, `session_services.py`; UI: `frontend/templates/auth.html`.
 
-**Email setup:** `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (Google **App Password**), `DEFAULT_FROM_EMAIL` in `.env`. See `.env.example`.
+### Google Cloud setup (required)
 
-Run once after pulling auth changes:
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **Credentials**.
+2. **Create credentials** → **OAuth client ID** → type **Web application**.
+3. **Authorized JavaScript origins:** `http://127.0.0.1:8000` (add your production origin later).
+4. **Authorized redirect URIs** (both required):
+   - `http://127.0.0.1:8000/auth/google/callback/` — sign-in
+   - `http://127.0.0.1:8000/integrations/google/callback/` — profile integrations (Forms/Sheets/Drive)
+5. Copy **Client ID** and **Client secret** into `.env`.
+6. OAuth consent screen: add scopes for sign-in (email, profile, openid). For integrations, also enable Google Forms/Sheets/Drive APIs when you use the profile wizard.
+7. Generate `TOKEN_ENCRYPTION_KEY` (Fernet) for stored integration refresh tokens — see `.env.example`.
+
+Run after pulling auth changes:
 
 ```powershell
 cd backend
@@ -92,7 +100,7 @@ python manage.py migrate
 python manage.py ensure_profile_schema
 ```
 
-`ensure_profile_schema` adds `users` / `companies` columns for the profile wizard (idempotent; safe to re-run).
+`ensure_profile_schema` applies SQL under `database/migrations/` (including `users.google_sub`).
 
 ## Pages
 
@@ -100,10 +108,10 @@ python manage.py ensure_profile_schema
 | --- | --- | --- |
 | `/` | Public | Marketing; redirects to dashboard if already signed in |
 | `/login/` | Public | Sign in (redirects to dashboard if already signed in) |
-| `/register/` | Public | Sign up with OTP |
+| `/register/` | Public | Sign up with Google (same as login) |
 | `/dashboard/` | **Login required** | HR workspace (panels below) |
 
-Sign-in and registration share one template; the URL sets the visible panel. Auth actions use **Fetch API** (no full-page reload for OTP/login submit).
+Sign-in and registration share one template; both use **Continue with Google**.
 
 ### Landing page
 
@@ -112,8 +120,7 @@ Sign-in and registration share one template; the URL sets the visible panel. Aut
 
 ### Registration (current UI)
 
-- **Fields:** work email, password, confirm password (not the full company/profile wizard yet).
-- After OTP verification, a **minimal company** row is created; full profile onboarding is planned in [docs/auth_onboarding_integrations.md](docs/auth_onboarding_integrations.md).
+- **Continue with Google** only; a **minimal company** row is created for new users. Full onboarding is the in-app profile wizard ([spec](docs/auth_onboarding_integrations.md)).
 
 ### Dashboard (signed-in only)
 
@@ -244,20 +251,20 @@ POSTGRES_PASSWORD=...
 POSTGRES_DB=autohr_n
 GROQ_API_KEY=...
 GROQ_MODEL=openai/gpt-oss-120b
-EMAIL_HOST_USER=your@gmail.com
-EMAIL_HOST_PASSWORD=your-app-password
-DEFAULT_FROM_EMAIL=your@gmail.com
+GOOGLE_OAUTH_CLIENT_ID=....apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=GOCSPX-...
+GOOGLE_AUTH_REDIRECT_URI=http://127.0.0.1:8000/auth/google/callback/
+GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:8000/integrations/google/callback/
+TOKEN_ENCRYPTION_KEY=...   # Fernet key for integration tokens
 ```
 
 `settings.py` loads `.env` with **`override=True`**. Restart **`runserver`** after edits.
-
-**Gmail OTP:** enable 2-Step Verification → create an **App Password** → put it in `EMAIL_HOST_PASSWORD` (not your normal Gmail password).
 
 ## Front-end notes
 
 - Bootstrap 5.3, Bootstrap Icons, Plus Jakarta Sans, AOS (CDN)
 - **`frontend/static/js/main.js`** — tooltips, counters, password visibility, auth panel toggle
-- **`frontend/static/js/auth.js`** — signup OTP modal, login, forgot password
+- **`frontend/static/js/auth.js`** — Google sign-in button state
 - **`frontend/static/js/create_job.js`** — Create Job stepper + Groq flow
 - **`frontend/static/js/dashboard.js`** — panel switching, sidebar
 - **`frontend/static/css/theme.css`**, **`dashboard.css`**, **`auth.css`**

@@ -90,7 +90,7 @@
       {% if not profile_complete %}
       <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3" role="alert">
         <span><strong>Complete your profile</strong> to publish jobs and connect Google services. You can still create jobs and save AI descriptions as drafts.</span>
-        <button type="button" class="btn btn-db-primary btn-sm" onclick="window.openProfileWizard && window.openProfileWizard()">Continue setup</button>
+        <button type="button" class="btn btn-db-primary btn-sm" data-open-profile-wizard>Continue setup</button>
       </div>
       {% endif %}
 
@@ -419,7 +419,9 @@
           </div>
           <div class="d-flex flex-wrap gap-2">
             {% if not profile_complete %}
-            <button type="button" class="btn btn-db-primary btn-sm" onclick="window.openProfileWizard && window.openProfileWizard()">Complete profile setup</button>
+            <button type="button" class="btn btn-db-primary btn-sm" data-open-profile-wizard>Complete profile setup</button>
+            {% else %}
+            <button type="button" class="btn btn-db-secondary btn-sm" data-open-profile-wizard data-wizard-step="3">Profile &amp; integrations</button>
             {% endif %}
             <a href="{% url 'logout' %}" class="btn-db-secondary"><i class="bi bi-box-arrow-right"></i> Sign out</a>
           </div>
@@ -500,12 +502,54 @@
           </div>
         </div>
 
+        <div class="db-card mt-3" data-integrations-card id="account-integrations">
+          <div class="db-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h2 class="db-card-title mb-0">Integrations</h2>
+            <button type="button" class="btn btn-db-secondary btn-sm" data-open-profile-wizard data-wizard-step="3">Manage in setup wizard</button>
+          </div>
+          <div class="db-card-body">
+            <p class="small text-muted mb-3">Connect Google Workspace to create application forms. You can reconnect or update recruitment settings anytime.</p>
+            <div class="account-integration-row d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 border-bottom" data-integration-row="google_workspace">
+              <div>
+                <strong class="small d-block"><i class="bi bi-google text-warning me-1"></i> Google Workspace</strong>
+                <span class="small text-muted" data-int-status-label>Loading…</span>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-db-primary btn-sm" data-int-reconnect href="{% url 'google_oauth_start' %}?flow=google_workspace">Connect / Reconnect</a>
+                <button type="button" class="btn btn-link btn-sm text-danger d-none" data-int-disconnect data-provider="google_workspace">Disconnect</button>
+              </div>
+            </div>
+            <div class="account-integration-row d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
+              <div>
+                <strong class="small d-block"><i class="bi bi-calendar-week me-1"></i> Google Calendar</strong>
+                <span class="small text-muted" data-int-cal-status-label>Loading…</span>
+              </div>
+              <a class="btn btn-db-secondary btn-sm" data-int-cal-reconnect href="{% url 'google_oauth_start' %}?flow=google_calendar">Connect</a>
+            </div>
+            <ul class="small text-muted mb-0 mt-3 ps-3">
+              <li>Forms, Sheets, and Drive scopes are required for job application forms.</li>
+              <li>If creation fails, enable <strong>Google Forms API</strong> in Cloud Console, then reconnect above.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="db-card mt-3" data-sessions-card>
+          <div class="db-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h2 class="db-card-title mb-0">Signed-in devices</h2>
+            <button type="button" class="btn btn-db-secondary btn-sm" data-revoke-other-sessions>Sign out other devices</button>
+          </div>
+          <div class="db-card-body">
+            <p class="small text-muted mb-2">Each browser keeps its own session. Revoke access if you signed in on a shared machine.</p>
+            <ul class="list-unstyled small mb-0" data-sessions-list></ul>
+          </div>
+        </div>
+
         <div class="db-card account-danger-zone mt-3">
           <div class="db-card-header"><h2 class="db-card-title text-danger">Delete account</h2></div>
           <div class="db-card-body">
             <p class="small text-muted mb-3">
               Permanently delete your AutoHR account, job drafts, profile setup, and integrations.
-              We will send a verification code to <strong>{{ hr.email }}</strong> before anything is removed.
+              Type <strong>DELETE</strong> and your account email to confirm.
             </p>
             <button type="button" class="btn btn-outline-danger btn-sm" data-delete-account-start>Delete my account</button>
           </div>
@@ -516,15 +560,14 @@
         <div class="account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
           <button type="button" class="profile-wizard-close" data-delete-account-close aria-label="Close">&times;</button>
           <h2 class="h5 fw-bold mb-1" id="deleteAccountTitle">Confirm account deletion</h2>
-          <p class="small text-muted mb-3">Enter the 6-digit code sent to <strong data-delete-email-display>{{ hr.email }}</strong>.</p>
-          <div class="alert py-2 px-3 small d-none" data-delete-otp-status role="alert"></div>
-          <div class="small text-muted mb-2">Code expires in <span data-delete-otp-timer>02:00</span></div>
-          <input type="text" class="db-input w-100 mb-3" data-delete-otp-input inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code">
-          <button type="button" class="btn btn-danger w-100 mb-2" data-delete-otp-verify>Verify and delete account</button>
-          <div class="d-flex justify-content-between">
-            <button type="button" class="btn btn-link btn-sm" data-delete-otp-resend disabled>Resend code</button>
-            <button type="button" class="btn btn-link btn-sm" data-delete-account-cancel>Cancel</button>
-          </div>
+          <p class="small text-muted mb-3">This cannot be undone. Your Google account stays; only AutoHR data is removed.</p>
+          <div class="alert py-2 px-3 small d-none" data-delete-status role="alert"></div>
+          <label class="form-label small fw-semibold" for="delete_confirm_phrase">Type DELETE</label>
+          <input type="text" class="db-input w-100 mb-3" id="delete_confirm_phrase" data-delete-confirmation placeholder="DELETE" autocomplete="off">
+          <label class="form-label small fw-semibold" for="delete_confirm_email">Account email</label>
+          <input type="email" class="db-input w-100 mb-3" id="delete_confirm_email" data-delete-email-input value="{{ hr.email }}" autocomplete="email">
+          <button type="button" class="btn btn-danger w-100 mb-2" data-delete-confirm>Delete account permanently</button>
+          <button type="button" class="btn btn-link btn-sm" data-delete-account-cancel>Cancel</button>
         </div>
       </div>
 
@@ -545,9 +588,12 @@
 ></script>
 <script>
   window.AUTOHR_ACCOUNT = {
-    deleteSendOtpUrl: "{% url 'account_delete_send_otp' %}",
-    deleteResendOtpUrl: "{% url 'account_delete_resend_otp' %}",
-    deleteVerifyUrl: "{% url 'account_delete_verify' %}"
+    deleteConfirmUrl: "{% url 'account_delete_confirm' %}",
+    sessionsUrl: "{% url 'account_sessions_api' %}",
+    revokeSessionUrl: "{% url 'account_revoke_session' %}",
+    revokeOthersUrl: "{% url 'account_revoke_other_sessions' %}",
+    integrationsUrl: "/account/api/integrations/",
+    disconnectIntegrationUrl: "/account/api/integrations/disconnect/"
   };
 </script>
 <script src="{% static_v 'js/dashboard.js' %}"></script>

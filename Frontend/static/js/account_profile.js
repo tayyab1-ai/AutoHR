@@ -2,109 +2,314 @@ document.addEventListener("DOMContentLoaded", function () {
   var panel = document.querySelector('[data-panel="account"]');
   if (!panel) return;
 
-  var toast = panel.querySelector("[data-account-toast]");
-  var EDITABLE = ["first_name", "last_name", "phone", "job_title", "work_email", "hr_department"];
-
   function getCsrf() {
-    var match = document.cookie.match(/csrftoken=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : "";
+    var match = document.cookie.match(/(^| )csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[2]) : "";
   }
 
-  function showToast(msg, isError) {
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.classList.remove("d-none", "is-error", "is-success");
-    toast.classList.add(isError ? "is-error" : "is-success");
-    window.setTimeout(function () {
-      toast.classList.add("d-none");
-    }, 3200);
-  }
-
-  function displayValue(field, profile) {
-    var v = profile[field];
-    if (v === undefined || v === null || v === "") return "—";
-    return v;
+  function showToast(message, isError) {
+    window.dispatchEvent(
+      new CustomEvent("autohr-toast", { detail: { message: message, error: !!isError } })
+    );
   }
 
   function applyProfile(profile) {
     if (!profile) return;
-    panel.querySelectorAll("[data-display]").forEach(function (el) {
-      var key = el.getAttribute("data-display");
-      el.textContent = displayValue(key, profile);
+    Object.keys(profile).forEach(function (key) {
+      panel.querySelectorAll('[data-display="' + key + '"]').forEach(function (el) {
+        el.textContent = profile[key] != null ? profile[key] : "—";
+      });
     });
-    panel.querySelectorAll("[data-edit-input]").forEach(function (input) {
-      var key = input.getAttribute("data-edit-input");
-      var raw = profile[key];
-      if (raw === "—" || raw === undefined || raw === null) raw = "";
-      input.value = raw;
-    });
-    var chipName = document.querySelector(".db-user-name");
-    if (chipName && profile.full_name) chipName.textContent = profile.full_name;
-    var chipRole = document.querySelector(".db-user-role");
-    if (chipRole && profile.job_title) chipRole.textContent = profile.job_title;
-    var headerName = panel.querySelector("[data-account-header-name]");
-    if (headerName) headerName.textContent = profile.full_name;
-    var headerSub = panel.querySelector("[data-account-header-sub]");
-    if (headerSub) {
-      headerSub.textContent =
-        (profile.job_title || "HR") +
-        " at " +
-        (profile.company_name || "—") +
-        " · " +
-        (profile.city || "—") +
-        ", " +
-        (profile.country || "Pakistan");
-    }
-    var avatar = panel.querySelector("[data-account-avatar]");
-    if (avatar && profile.initials) avatar.textContent = profile.initials;
-    var chipAvatar = document.querySelector(".db-avatar");
-    if (chipAvatar && profile.initials) chipAvatar.textContent = profile.initials;
-  }
-
-  function closeEdit(field) {
-    var row = panel.querySelector('[data-account-row="' + field + '"]');
-    if (!row) return;
-    row.querySelector("[data-display-wrap]").classList.remove("d-none");
-    row.querySelector("[data-edit-wrap]").classList.add("d-none");
-  }
-
-  function openEdit(field) {
-    var row = panel.querySelector('[data-account-row="' + field + '"]');
-    if (!row) return;
-    row.querySelector("[data-display-wrap]").classList.add("d-none");
-    row.querySelector("[data-edit-wrap]").classList.remove("d-none");
-    var input = row.querySelector("[data-edit-input]");
-    if (input) input.focus();
   }
 
   panel.querySelectorAll("[data-edit-trigger]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      openEdit(btn.getAttribute("data-edit-trigger"));
-    });
+    var field = btn.getAttribute("data-edit-trigger");
+    var row = btn.closest("[data-account-row]");
+    if (!row) return;
+    var displayWrap = row.querySelector("[data-display-wrap]");
+    var editWrap = row.querySelector("[data-edit-wrap]");
+    function openEdit() {
+      displayWrap.classList.add("d-none");
+      editWrap.classList.remove("d-none");
+    }
+    function closeEdit() {
+      editWrap.classList.add("d-none");
+      displayWrap.classList.remove("d-none");
+    }
+    btn.addEventListener("click", openEdit);
+    var cancel = row.querySelector('[data-edit-cancel="' + field + '"]');
+    if (cancel) cancel.addEventListener("click", closeEdit);
+    var save = row.querySelector('[data-edit-save="' + field + '"]');
+    if (save) {
+      save.addEventListener("click", function () {
+        var input = row.querySelector('[data-edit-input="' + field + '"]');
+        var value = input ? input.value : "";
+        save.disabled = true;
+        fetch("/account/api/update/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrf(),
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ field: field, value: value }),
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data };
+            });
+          })
+          .then(function (result) {
+            if (!result.ok) {
+              var errs = (result.data.errors && result.data.errors.__all__) || ["Could not save."];
+              showToast(Array.isArray(errs) ? errs.join(" ") : errs, true);
+              return;
+            }
+            applyProfile(result.data.profile);
+            closeEdit();
+            showToast(result.data.message || "Saved successfully.", false);
+          })
+          .catch(function () {
+            showToast("Network error while saving.", true);
+          })
+          .finally(function () {
+            save.disabled = false;
+          });
+      });
+    }
   });
 
-  panel.querySelectorAll("[data-edit-cancel]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      closeEdit(btn.getAttribute("data-edit-cancel"));
-    });
-  });
+  fetch("/account/api/profile/", { headers: { Accept: "application/json" } })
+    .then(function (res) {
+      return res.json();
+    })
+    .then(function (data) {
+      if (data.ok) applyProfile(data.profile);
+    })
+    .catch(function () {});
 
-  panel.querySelectorAll("[data-edit-save]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var field = btn.getAttribute("data-edit-save");
-      if (EDITABLE.indexOf(field) === -1) return;
-      var row = panel.querySelector('[data-account-row="' + field + '"]');
-      var input = row ? row.querySelector("[data-edit-input]") : null;
-      if (!input) return;
-      btn.disabled = true;
-      fetch("/account/api/update/", {
+  var accountCfg = window.AUTOHR_ACCOUNT || {};
+  var sessionsList = panel.querySelector("[data-sessions-list]");
+  var revokeOthersBtn = panel.querySelector("[data-revoke-other-sessions]");
+
+  function renderSessions(sessions) {
+    if (!sessionsList) return;
+    sessionsList.innerHTML = "";
+    if (!sessions || !sessions.length) {
+      sessionsList.innerHTML = "<li class=\"text-muted\">No active sessions.</li>";
+      return;
+    }
+    sessions.forEach(function (s) {
+      var li = document.createElement("li");
+      li.className = "mb-2 pb-2 border-bottom border-light";
+      var label = (s.current ? "This device · " : "") + (s.device_label || "Device");
+      var seen = s.last_seen_at ? new Date(s.last_seen_at).toLocaleString() : "";
+      li.innerHTML =
+        '<div class="d-flex justify-content-between align-items-start gap-2">' +
+        "<span><strong>" +
+        label +
+        "</strong><br><span class=\"text-muted\">Last active " +
+        seen +
+        (s.ip_address && s.ip_address !== "—" ? " · " + s.ip_address : "") +
+        "</span></span>" +
+        (s.current
+          ? ""
+          : '<button type="button" class="btn btn-link btn-sm p-0" data-revoke-session="' +
+            s.id +
+            '">Sign out</button>') +
+        "</div>";
+      sessionsList.appendChild(li);
+    });
+    sessionsList.querySelectorAll("[data-revoke-session]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var sid = btn.getAttribute("data-revoke-session");
+        fetch(accountCfg.revokeSessionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrf(),
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ session_id: sid }),
+        })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (data) {
+            if (data.ok) renderSessions(data.sessions);
+            else showToast("Could not revoke session.", true);
+          });
+      });
+    });
+  }
+
+  function loadSessions() {
+    if (!accountCfg.sessionsUrl) return;
+    fetch(accountCfg.sessionsUrl, { headers: { Accept: "application/json" } })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        if (data.ok) renderSessions(data.sessions);
+      })
+      .catch(function () {});
+  }
+
+  loadSessions();
+
+  var intCard = panel.querySelector("[data-integrations-card]");
+  var intStatus = panel.querySelector("[data-int-status-label]");
+  var intCalStatus = panel.querySelector("[data-int-cal-status-label]");
+  var intDisconnect = panel.querySelector("[data-int-disconnect]");
+
+  function renderIntegrations(integrations) {
+    if (!integrations) return;
+    var ws = integrations.google_workspace || {};
+    if (intStatus) {
+      if (ws.status === "connected") {
+        intStatus.innerHTML =
+          "Connected" +
+          (ws.email ? " as <strong>" + ws.email + "</strong>" : "") +
+          (ws.token_usable ? " · token active" : " · <span class=\"text-danger\">token needs reconnect</span>");
+      } else {
+        intStatus.textContent = "Not connected — required for Google application forms.";
+      }
+    }
+    if (intDisconnect) {
+      intDisconnect.classList.toggle("d-none", ws.status !== "connected");
+    }
+    var cal = integrations.google_calendar || {};
+    if (intCalStatus) {
+      intCalStatus.textContent =
+        cal.status === "connected"
+          ? "Connected" + (cal.email ? " (" + cal.email + ")" : "")
+          : "Optional — connect for interview scheduling.";
+    }
+  }
+
+  function loadIntegrations() {
+    if (!accountCfg.integrationsUrl) return;
+    fetch(accountCfg.integrationsUrl, { headers: { Accept: "application/json" } })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        if (data.ok) renderIntegrations(data.integrations);
+      })
+      .catch(function () {
+        if (intStatus) intStatus.textContent = "Could not load integration status.";
+      });
+  }
+
+  loadIntegrations();
+
+  if (intDisconnect) {
+    intDisconnect.addEventListener("click", function () {
+      if (!window.confirm("Disconnect Google Workspace? Form creation will stop until you reconnect.")) return;
+      fetch(accountCfg.disconnectIntegrationUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-CSRFToken": getCsrf(),
           Accept: "application/json",
         },
-        body: JSON.stringify({ field: field, value: input.value }),
+        body: JSON.stringify({ provider: "google_workspace" }),
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (data) {
+          if (data.ok) {
+            renderIntegrations(data.integrations);
+            showToast(data.message || "Disconnected.", false);
+          } else showToast("Could not disconnect.", true);
+        });
+    });
+  }
+
+  window.refreshAccountIntegrations = loadIntegrations;
+
+  if (revokeOthersBtn) {
+    revokeOthersBtn.addEventListener("click", function () {
+      revokeOthersBtn.disabled = true;
+      fetch(accountCfg.revokeOthersUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrf(),
+          Accept: "application/json",
+        },
+        body: "{}",
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (data) {
+          if (data.ok) {
+            renderSessions(data.sessions);
+            showToast(data.message || "Other devices signed out.", false);
+          }
+        })
+        .finally(function () {
+          revokeOthersBtn.disabled = false;
+        });
+    });
+  }
+
+  var deleteBackdrop = document.querySelector("[data-delete-account-backdrop]");
+  if (!deleteBackdrop) return;
+
+  var deleteStart = panel.querySelector("[data-delete-account-start]");
+  var deleteClose = deleteBackdrop.querySelector("[data-delete-account-close]");
+  var deleteCancel = deleteBackdrop.querySelector("[data-delete-account-cancel]");
+  var deleteConfirm = deleteBackdrop.querySelector("[data-delete-confirm]");
+  var deletePhrase = deleteBackdrop.querySelector("[data-delete-confirmation]");
+  var deleteEmail = deleteBackdrop.querySelector("[data-delete-email-input]");
+  var deleteStatus = deleteBackdrop.querySelector("[data-delete-status]");
+
+  function deleteShowStatus(text, kind) {
+    if (!deleteStatus) return;
+    deleteStatus.textContent = text || "";
+    deleteStatus.classList.remove("d-none", "alert-danger", "alert-success", "alert-warning");
+    deleteStatus.classList.add(kind === "success" ? "alert-success" : "alert-danger");
+    if (!text) deleteStatus.classList.add("d-none");
+  }
+
+  function openDeleteModal() {
+    deleteBackdrop.classList.remove("d-none");
+    deleteBackdrop.setAttribute("aria-hidden", "false");
+    deleteShowStatus("", "");
+    if (deletePhrase) deletePhrase.value = "";
+  }
+
+  function closeDeleteModal() {
+    deleteBackdrop.classList.add("d-none");
+    deleteBackdrop.setAttribute("aria-hidden", "true");
+  }
+
+  if (deleteStart) {
+    deleteStart.addEventListener("click", function () {
+      if (!window.confirm("Delete your account permanently? This cannot be undone.")) return;
+      openDeleteModal();
+    });
+  }
+
+  if (deleteClose) deleteClose.addEventListener("click", closeDeleteModal);
+  if (deleteCancel) deleteCancel.addEventListener("click", closeDeleteModal);
+
+  if (deleteConfirm) {
+    deleteConfirm.addEventListener("click", function () {
+      var confirmation = deletePhrase ? deletePhrase.value.trim() : "";
+      var email = deleteEmail ? deleteEmail.value.trim() : "";
+      deleteConfirm.disabled = true;
+      fetch(accountCfg.deleteConfirmUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrf(),
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ confirmation: confirmation, email: email }),
       })
         .then(function (res) {
           return res.json().then(function (data) {
@@ -113,153 +318,11 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(function (result) {
           if (!result.ok) {
-            var errs = (result.data.errors && result.data.errors.__all__) || ["Could not save."];
-            showToast(errs.join(" "), true);
-            return;
-          }
-          applyProfile(result.data.profile);
-          closeEdit(field);
-          showToast(result.data.message || "Saved successfully.", false);
-        })
-        .catch(function () {
-          showToast("Network error while saving.", true);
-        })
-        .finally(function () {
-          btn.disabled = false;
-        });
-    });
-  });
-
-  fetch("/account/api/profile/", { headers: { Accept: "application/json" } })
-    .then(function (res) { return res.json(); })
-    .then(function (data) {
-      if (data.ok) applyProfile(data.profile);
-    })
-    .catch(function () {});
-
-  /* ----- Delete account (OTP) ----- */
-  var deleteCfg = window.AUTOHR_ACCOUNT || {};
-  var deleteBackdrop = document.querySelector("[data-delete-account-backdrop]");
-  if (!deleteBackdrop) return;
-
-  var deleteStart = panel.querySelector("[data-delete-account-start]");
-  var deleteClose = deleteBackdrop.querySelector("[data-delete-account-close]");
-  var deleteCancel = deleteBackdrop.querySelector("[data-delete-account-cancel]");
-  var deleteVerify = deleteBackdrop.querySelector("[data-delete-otp-verify]");
-  var deleteResend = deleteBackdrop.querySelector("[data-delete-otp-resend]");
-  var deleteInput = deleteBackdrop.querySelector("[data-delete-otp-input]");
-  var deleteStatus = deleteBackdrop.querySelector("[data-delete-otp-status]");
-  var deleteTimerEl = deleteBackdrop.querySelector("[data-delete-otp-timer]");
-  var deleteEmailEl = deleteBackdrop.querySelector("[data-delete-email-display]");
-  var deleteTimerId = null;
-  var deleteSeconds = 0;
-
-  function deleteShowStatus(text, kind) {
-    if (!deleteStatus) return;
-    deleteStatus.textContent = text || "";
-    deleteStatus.classList.remove("d-none", "alert-danger", "alert-success", "alert-warning");
-    deleteStatus.classList.add(kind === "success" ? "alert-success" : kind === "warn" ? "alert-warning" : "alert-danger");
-    if (!text) deleteStatus.classList.add("d-none");
-  }
-
-  function stopDeleteTimer() {
-    if (deleteTimerId) clearInterval(deleteTimerId);
-    deleteTimerId = null;
-  }
-
-  function formatDeleteTimer(secs) {
-    var m = Math.floor(secs / 60);
-    var s = secs % 60;
-    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
-  }
-
-  function startDeleteTimer(duration) {
-    stopDeleteTimer();
-    deleteSeconds = duration;
-    if (deleteTimerEl) deleteTimerEl.textContent = formatDeleteTimer(deleteSeconds);
-    if (deleteResend) deleteResend.disabled = true;
-    deleteTimerId = setInterval(function () {
-      deleteSeconds -= 1;
-      if (deleteTimerEl) deleteTimerEl.textContent = formatDeleteTimer(Math.max(0, deleteSeconds));
-      if (deleteSeconds <= 0) {
-        stopDeleteTimer();
-        if (deleteResend) deleteResend.disabled = false;
-      }
-    }, 1000);
-  }
-
-  function openDeleteModal() {
-    deleteBackdrop.classList.remove("d-none");
-    deleteBackdrop.setAttribute("aria-hidden", "false");
-    deleteShowStatus("", "");
-    if (deleteInput) deleteInput.value = "";
-  }
-
-  function closeDeleteModal() {
-    deleteBackdrop.classList.add("d-none");
-    deleteBackdrop.setAttribute("aria-hidden", "true");
-    stopDeleteTimer();
-  }
-
-  function postDelete(url, body) {
-    return fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCsrf(),
-        Accept: "application/json",
-      },
-      body: body ? JSON.stringify(body) : "{}",
-    }).then(function (res) {
-      return res.json().then(function (data) {
-        return { ok: res.ok, data: data };
-      });
-    });
-  }
-
-  if (deleteStart) {
-    deleteStart.addEventListener("click", function () {
-      if (!window.confirm("Delete your account permanently? This cannot be undone.")) return;
-      deleteStart.disabled = true;
-      postDelete(deleteCfg.deleteSendOtpUrl)
-        .then(function (result) {
-          if (!result.ok) {
-            var errs = (result.data.errors && (result.data.errors.email || result.data.errors.__all__)) || ["Could not send code."];
-            showToast(Array.isArray(errs) ? errs.join(" ") : errs, true);
-            return;
-          }
-          if (deleteEmailEl && result.data.email_masked) {
-            deleteEmailEl.textContent = result.data.email_masked;
-          }
-          openDeleteModal();
-          startDeleteTimer(result.data.expires_in || 120);
-        })
-        .catch(function () {
-          showToast("Network error while sending verification code.", true);
-        })
-        .finally(function () {
-          deleteStart.disabled = false;
-        });
-    });
-  }
-
-  if (deleteVerify && deleteInput) {
-    deleteVerify.addEventListener("click", function () {
-      var otp = deleteInput.value.trim();
-      if (otp.length !== 6) {
-        deleteShowStatus("Enter the 6-digit code from your email.", "error");
-        return;
-      }
-      deleteVerify.disabled = true;
-      postDelete(deleteCfg.deleteVerifyUrl, { otp: otp })
-        .then(function (result) {
-          if (!result.ok) {
-            if (result.data.lockout) {
-              deleteShowStatus(result.data.message || "Too many attempts.", "error");
-              closeDeleteModal();
-              return;
-            }
-            var msg = (result.data.errors && result.data.errors.otp && result.data.errors.otp[0]) || "Invalid code.";
+            var msg =
+              (result.data.errors &&
+                ((result.data.errors.confirmation && result.data.errors.confirmation[0]) ||
+                  (result.data.errors.email && result.data.errors.email[0]))) ||
+              "Could not delete account.";
             deleteShowStatus(msg, "error");
             return;
           }
@@ -272,34 +335,8 @@ document.addEventListener("DOMContentLoaded", function () {
           deleteShowStatus("Network error. Try again.", "error");
         })
         .finally(function () {
-          deleteVerify.disabled = false;
+          deleteConfirm.disabled = false;
         });
     });
   }
-
-  if (deleteResend) {
-    deleteResend.addEventListener("click", function () {
-      deleteResend.disabled = true;
-      postDelete(deleteCfg.deleteResendOtpUrl)
-        .then(function (result) {
-          if (!result.ok) {
-            deleteShowStatus(
-              (result.data.errors && result.data.errors.otp && result.data.errors.otp[0]) || "Could not resend.",
-              "error"
-            );
-            return;
-          }
-          deleteShowStatus("New code sent.", "success");
-          startDeleteTimer(result.data.expires_in || 120);
-        })
-        .finally(function () {
-          if (deleteSeconds <= 0 && deleteResend) deleteResend.disabled = false;
-        });
-    });
-  }
-
-  [deleteClose, deleteCancel].forEach(function (btn) {
-    if (!btn) return;
-    btn.addEventListener("click", closeDeleteModal);
-  });
 });

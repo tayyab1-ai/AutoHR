@@ -67,7 +67,7 @@ Delete behavior:
 - Timestamps are `TIMESTAMPTZ`.
 - Scores that are queried and sorted are normal numeric columns. AI payloads that change shape (parsed profile, skill match detail, board API response, JD prompt) are `JSONB`.
 - Job-board passwords are `TEXT` columns meant to hold ciphertext produced by the application. The database does not store those passwords in clear text by itself; the application must encrypt them before insert.
-- HR login passwords are stored only as `password_hash`.
+- HR sign-in is **Google OAuth**; `users.google_sub` links the Google account; `password_hash` is an unusable placeholder for legacy rows.
 
 ## Enums
 

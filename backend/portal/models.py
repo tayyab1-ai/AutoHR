@@ -40,6 +40,7 @@ class User(models.Model):
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=150)
     password_hash = models.CharField(max_length=255)
+    google_sub = models.CharField(max_length=64, blank=True, null=True, unique=True)
     phone = models.CharField(max_length=30, blank=True, null=True)
     job_title = models.CharField(max_length=120, blank=True, null=True)
     first_name = models.CharField(max_length=80, blank=True, null=True)
@@ -155,4 +156,9 @@ class JobResponsibility(models.Model):
 
 
 # Django-managed profile & integration tables
-from .profile_models import IntegrationConnection, OAuthCredential, ProfileSetup  # noqa: E402, F401
+from .profile_models import (  # noqa: E402, F401
+    IntegrationConnection,
+    JobApplicationFormConfig,
+    OAuthCredential,
+    ProfileSetup,
+)

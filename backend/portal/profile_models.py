@@ -36,6 +36,29 @@ class IntegrationConnection(models.Model):
         unique_together = [["user_id", "provider"]]
 
 
+class JobApplicationFormConfig(models.Model):
+    """Per-job Google Form field selection and generated form metadata."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job_id = models.UUIDField(unique=True, db_index=True)
+    company_id = models.UUIDField(db_index=True)
+    application_form_title = models.CharField(max_length=300, blank=True, null=True)
+    form_description = models.TextField(blank=True, null=True)
+    selected_fields = models.JSONField(default=list, blank=True)
+    allow_multiple_responses = models.BooleanField(default=False)
+    google_form_id = models.CharField(max_length=120, blank=True, null=True)
+    google_form_url = models.URLField(max_length=500, blank=True, null=True)
+    resume_drive_folder_url = models.URLField(max_length=500, blank=True, null=True)
+    spreadsheet_id = models.CharField(max_length=120, blank=True, null=True)
+    spreadsheet_url = models.URLField(max_length=500, blank=True, null=True)
+    status = models.CharField(max_length=32, default="draft")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "job_application_form_configs"
+
+
 class OAuthCredential(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user_id = models.UUIDField(db_index=True)

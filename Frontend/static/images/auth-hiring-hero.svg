@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" fill="none" role="img" aria-label="Hiring workspace illustration">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5be42" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#01411c" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a3544"/>
+      <stop offset="100%" stop-color="#151a22"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="360" rx="24" fill="url(#g1)"/>
+  <!-- desk / workspace -->
+  <rect x="72" y="200" width="336" height="12" rx="6" fill="#3d4a5c" opacity="0.6"/>
+  <rect x="88" y="108" width="220" height="140" rx="14" fill="url(#screen)" stroke="#f5be42" stroke-width="2" opacity="0.95"/>
+  <rect x="104" y="124" width="80" height="8" rx="4" fill="#f5be42" opacity="0.9"/>
+  <rect x="104" y="142" width="188" height="6" rx="3" fill="#64748b"/>
+  <rect x="104" y="156" width="160" height="6" rx="3" fill="#475569"/>
+  <rect x="104" y="176" width="72" height="44" rx="8" fill="#1e293b" stroke="#f5be42" stroke-opacity="0.4"/>
+  <rect x="184" y="176" width="72" height="44" rx="8" fill="#1e293b" stroke="#22c55e" stroke-opacity="0.5"/>
+  <rect x="264" y="176" width="28" height="44" rx="8" fill="#1e293b"/>
+  <!-- candidate cards -->
+  <g transform="translate(320 120)">
+    <rect width="88" height="112" rx="12" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.25"/>
+    <circle cx="44" cy="36" r="22" fill="#f5be42" fill-opacity="0.85"/>
+    <rect x="20" y="68" width="48" height="6" rx="3" fill="#94a3b8"/>
+    <rect x="16" y="82" width="56" height="5" rx="2.5" fill="#64748b"/>
+    <rect x="24" y="94" width="40" height="5" rx="2.5" fill="#22c55e" fill-opacity="0.7"/>
+  </g>
+  <!-- pipeline arrow -->
+  <path d="M 260 248 L 300 248 L 288 236 M 300 248 L 288 260" stroke="#f5be42" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="248" cy="248" r="16" fill="#f5be42" fill-opacity="0.25" stroke="#f5be42"/>
+  <text x="248" y="253" text-anchor="middle" fill="#f5be42" font-size="14" font-family="system-ui,sans-serif" font-weight="700">AI</text>
+</svg>

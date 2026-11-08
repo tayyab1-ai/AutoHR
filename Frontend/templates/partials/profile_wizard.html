@@ -47,23 +47,34 @@
     </div>
 
     <div class="d-none" data-profile-step-panel="3">
-      <div class="integration-card">
+      <h3 class="h6 fw-bold">Google recruitment integration</h3>
+      <p class="small text-muted">Authorize Google Forms, Sheets, and Drive. We never ask for your Google password — OAuth tokens are encrypted.</p>
+      <div class="integration-card mb-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <strong><i class="bi bi-envelope-fill me-1 text-warning"></i> Gmail Integration</strong>
-          <span class="integration-badge not-connected" data-int-badge="gmail">Not connected</span>
+          <strong><i class="bi bi-google me-1 text-warning"></i> Google account</strong>
+          <span class="integration-badge not-connected" data-int-badge="google_workspace">Not connected</span>
         </div>
-        <p class="small text-muted mb-2">Connect your Gmail account to send recruitment emails automatically.</p>
-        <a class="btn btn-db-primary w-100 justify-content-center" href="{% url 'google_oauth_start' %}?flow=gmail">Connect Gmail</a>
+        <p class="small text-muted mb-2">Scopes: Forms (create/read responses), Sheets, Drive file access.</p>
+        <a class="btn btn-db-primary w-100 justify-content-center" href="{% url 'google_oauth_start' %}?flow=google_workspace">Connect Google account</a>
       </div>
-      <p class="small text-muted mb-0">OAuth only — we never ask for your Gmail password. Tokens are encrypted at rest.</p>
+      <div class="row g-2">
+        <div class="col-12"><label class="form-label small">Connected Google email</label><input class="form-control db-input" data-pf="connected_google_email" placeholder="Connect Google to populate" readonly disabled></div>
+        <div class="col-md-6"><label class="form-label small">Spreadsheet name *</label><input class="form-control db-input" data-pf="spreadsheet_name" placeholder="Company Candidate Records"></div>
+        <div class="col-md-6"><label class="form-label small">Existing spreadsheet ID (optional)</label><input class="form-control db-input" data-pf="existing_spreadsheet_id" placeholder="Leave blank to auto-create later"></div>
+        <div class="col-md-6"><label class="form-label small">Google Drive folder (optional)</label><input class="form-control db-input" data-pf="google_drive_folder" placeholder="Folder name or ID for future CV storage"></div>
+        <div class="col-md-6"><label class="form-label small">Response sync interval (minutes) *</label><input class="form-control db-input" type="number" min="1" max="60" data-pf="response_sync_interval_minutes" value="5"></div>
+        <div class="col-12"><label class="form-label small">Default form description *</label><textarea class="form-control db-input" rows="3" data-pf="default_form_description" placeholder="Introduction shown to candidates on application forms"></textarea></div>
+        <div class="col-md-6"><label class="form-label small">Default form theme</label><select class="form-select db-select" data-pf="form_theme"><option value="default">Default</option><option value="modern">Modern</option></select></div>
+        <div class="col-md-6 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" data-pf="allow_multiple_responses_default" id="pf_multi"><label class="form-check-label" for="pf_multi">Allow multiple responses (default)</label></div></div>
+        <div class="col-12"><label class="form-label small">Additional custom questions (optional)</label><textarea class="form-control db-input" rows="2" data-pf="additional_questions" placeholder="One question per line — appended when forms are generated"></textarea></div>
+      </div>
     </div>
 
     <div class="d-none" data-profile-step-panel="4">
-      <div class="integration-card">
-        <div class="d-flex justify-content-between mb-2"><strong>Google Workspace</strong><span class="integration-badge not-connected" data-int-badge="google_workspace">Not connected</span></div>
-        <p class="small text-muted">Forms, Sheets, and Drive can share one Google OAuth connection.</p>
-        <a class="btn btn-db-secondary w-100 justify-content-center" href="{% url 'google_oauth_start' %}?flow=google_workspace">Connect Google Workspace</a>
-      </div>
+      <h3 class="h6 fw-bold">Sheets &amp; sync</h3>
+      <p class="small text-muted">Google connection is configured in step 3. Set how often we poll for new form responses (MVP uses scheduled polling).</p>
+      <div class="form-check"><input class="form-check-input" type="checkbox" data-pf="enable_sheets_sync" checked id="pf_sheets"><label class="form-check-label" for="pf_sheets">Sync candidates to Google Sheets</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" data-pf="enable_database_primary" checked id="pf_db"><label class="form-check-label" for="pf_db">Use PostgreSQL as primary source of truth</label></div>
     </div>
 
     <div class="d-none" data-profile-step-panel="5">

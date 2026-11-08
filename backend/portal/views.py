@@ -14,6 +14,7 @@ from .services import (
     get_job_for_company,
     jobs_for_dashboard,
     save_finalized_job_description,
+    save_job_description_draft,
 )
 from .session_user import build_hr_profile, workspace_shell
 
@@ -28,14 +29,26 @@ def landing(request):
     return render(request, "landing.html")
 
 
+_AUTH_ERRORS = {
+    "oauth_not_configured": "Google sign-in is not configured. Ask your administrator to set Google OAuth env variables.",
+    "google_denied": "Google sign-in was cancelled.",
+    "state_mismatch": "Sign-in session expired. Try again.",
+    "missing_code": "Google did not return an authorization code. Try again.",
+    "google_exchange_failed": "Could not complete Google sign-in. Try again.",
+    "google_profile": "Could not read your Google profile.",
+    "email_not_verified": "Your Google email is not verified. Use a verified Google account.",
+    "signup_failed": "Could not create your account. Try again or contact support.",
+}
+
+
 def auth_page(request, mode="signup"):
     if getattr(request.user, "is_authenticated", False) and hasattr(request.user, "db_user"):
         return redirect("dashboard")
+    err_key = (request.GET.get("error") or "").strip()
     context = {
         "mode": mode,
         "is_signup": mode == "signup",
-        "registered": request.GET.get("registered") == "1",
-        "password_reset": request.GET.get("reset") == "1",
+        "auth_error": _AUTH_ERRORS.get(err_key, ""),
     }
     return render(request, "auth.html", context)
 
@@ -184,6 +197,34 @@ def prepare_google_form(request, job_id):
 
 @hr_login_required
 @require_POST
+def save_job_draft_jd(request, job_id):
+    company, _user = _session_actor(request)
+    try:
+        job = get_job_for_company(job_id, company)
+    except JobPosting.DoesNotExist:
+        return JsonResponse({"ok": False, "errors": {"job": ["Job not found."]}}, status=404)
+
+    content = (request.POST.get("finalized_jd") or "").strip()
+    if not content:
+        content = (job.ai_generated_jd_draft or "").strip()
+    if not content:
+        return JsonResponse(
+            {"ok": False, "errors": {"finalized_jd": ["Add or generate a job description before saving."]}},
+            status=400,
+        )
+
+    save_job_description_draft(job, content)
+    return JsonResponse(
+        {
+            "ok": True,
+            "job_id": str(job.id),
+            "message": "Job saved to your drafts. You can continue after completing your profile.",
+        }
+    )
+
+
+@hr_login_required
+@require_POST
 def delete_job_draft(request, job_id):
     company, user = _session_actor(request)
     try:
@@ -206,13 +247,13 @@ def get_job_draft(request, job_id):
         return JsonResponse({"ok": False, "errors": {"job": ["Job not found."]}}, status=404)
     if job.created_by_id != user.id:
         return JsonResponse({"ok": False, "errors": {"job": ["Not allowed."]}}, status=403)
-    return JsonResponse(
-        {
-            "ok": True,
-            "job_id": str(job.id),
-            "title": job.title,
-            "status": job.status,
-            "ai_generated_jd": job.ai_generated_jd_draft or "",
-            "has_jd": bool((job.ai_generated_jd_draft or "").strip()),
-        }
-    )
+    from .form_config_services import job_draft_wizard_state
+
+    payload = {
+        "ok": True,
+        "job_id": str(job.id),
+        "title": job.title,
+        "status": job.status,
+    }
+    payload.update(job_draft_wizard_state(job))
+    return JsonResponse(payload)

@@ -3,6 +3,10 @@ from django.utils import timezone
 from .models import Company, User
 from .profile_models import IntegrationConnection, ProfileSetup
 
+import re
+
+_SPREADSHEET_ID_RE = re.compile(r"^[a-zA-Z0-9-_]{20,}$")
+
 
 def ensure_profile_setup(user: User) -> ProfileSetup:
     setup, _ = ProfileSetup.objects.get_or_create(
@@ -166,6 +170,56 @@ def save_step2(user: User, setup: ProfileSetup, data: dict) -> list[str]:
     return []
 
 
+def save_step3(user: User, setup: ProfileSetup, data: dict) -> list[str]:
+    errors = []
+    conn = IntegrationConnection.objects.filter(user_id=user.id, provider="google_workspace").first()
+    if not conn or conn.status != "connected":
+        errors.append("Connect your Google account (OAuth) before continuing.")
+
+    spreadsheet_name = (data.get("spreadsheet_name") or "").strip()
+    form_description = (data.get("default_form_description") or data.get("form_description") or "").strip()
+    drive_folder = (data.get("google_drive_folder") or "").strip()
+    existing_sheet = (data.get("existing_spreadsheet_id") or "").strip()
+    sync_minutes = data.get("response_sync_interval_minutes", 5)
+
+    if not spreadsheet_name:
+        errors.append("Spreadsheet name is required.")
+    if not form_description:
+        errors.append("Default form description is required.")
+    if existing_sheet and not _SPREADSHEET_ID_RE.match(existing_sheet):
+        errors.append("Existing spreadsheet ID format looks invalid.")
+
+    try:
+        sync_minutes = int(sync_minutes)
+        if sync_minutes < 1 or sync_minutes > 60:
+            errors.append("Response sync interval must be between 1 and 60 minutes.")
+    except (TypeError, ValueError):
+        errors.append("Response sync interval must be a number.")
+
+    if errors:
+        return errors
+
+    payload = {
+        "spreadsheet_name": spreadsheet_name,
+        "existing_spreadsheet_id": existing_sheet or None,
+        "google_drive_folder": drive_folder or None,
+        "default_form_description": form_description,
+        "allow_multiple_responses_default": bool(data.get("allow_multiple_responses_default")),
+        "form_theme": (data.get("form_theme") or "default").strip(),
+        "additional_questions": (data.get("additional_questions") or "").strip(),
+        "response_sync_interval_minutes": sync_minutes,
+        "connected_google_email": conn.connected_email if conn else "",
+    }
+    save_step_preferences(setup, 3, payload)
+
+    if conn:
+        meta = dict(conn.metadata or {})
+        meta.update(payload)
+        conn.metadata = meta
+        conn.save(update_fields=["metadata", "updated_at"])
+    return []
+
+
 def save_step6(setup: ProfileSetup, data: dict) -> list[str]:
     errors = []
     name = (data.get("sender_display_name") or "").strip()
@@ -261,6 +315,25 @@ def _hydrated_step_data(user: User, setup: ProfileSetup) -> dict:
         step2["founded_year"] = company.founded_year
     if step2:
         step_data["2"] = step2
+
+    step3 = dict(step_data.get("3") or {})
+    conn = IntegrationConnection.objects.filter(user_id=user.id, provider="google_workspace").first()
+    if conn and conn.connected_email:
+        step3.setdefault("connected_google_email", conn.connected_email)
+    if conn and conn.metadata:
+        for key in (
+            "spreadsheet_name",
+            "existing_spreadsheet_id",
+            "google_drive_folder",
+            "default_form_description",
+            "form_theme",
+            "additional_questions",
+            "response_sync_interval_minutes",
+        ):
+            if key not in step3 and conn.metadata.get(key) is not None:
+                step3[key] = conn.metadata[key]
+    if step3:
+        step_data["3"] = step3
     return step_data
 
 

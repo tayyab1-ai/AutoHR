@@ -13,6 +13,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   var currentStep = 1;
   var lastIntegrations = null;
+  var settingsMode = false;
+  var titleEl = document.getElementById("profileWizardTitle");
 
   function getCsrfToken() {
     var match = document.cookie.match(/csrftoken=([^;]+)/);
@@ -49,6 +51,10 @@ document.addEventListener("DOMContentLoaded", function () {
       badge.textContent = st === "connected" ? "Connected" : "Not connected";
       badge.classList.toggle("connected", st === "connected");
       badge.classList.toggle("not-connected", st !== "connected");
+      if (key === "google_workspace" && st === "connected" && integrations[key].email) {
+        var emailInput = backdrop.querySelector('[data-pf="connected_google_email"]');
+        if (emailInput) emailInput.value = integrations[key].email;
+      }
     });
   }
 
@@ -123,7 +129,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var s2 = collectStepData(2);
     if (s2.company_name) lines.push("Company: " + s2.company_name);
     if (lastIntegrations) {
-      ["gmail", "google_workspace", "google_calendar"].forEach(function (key) {
+      ["google_workspace", "google_calendar"].forEach(function (key) {
         var row = lastIntegrations[key];
         if (!row) return;
         var label =
@@ -174,6 +180,9 @@ document.addEventListener("DOMContentLoaded", function () {
       backdrop.classList.add("is-open");
     });
     document.body.style.overflow = "hidden";
+    if (titleEl) {
+      titleEl.textContent = settingsMode ? "Workspace settings" : "Profile setup";
+    }
     loadState().then(function () {
       if (step) showStep(step);
     });
@@ -188,7 +197,21 @@ document.addEventListener("DOMContentLoaded", function () {
     }, 260);
   }
 
-  window.openProfileWizard = openWizard;
+  window.openProfileWizard = function (step, options) {
+    options = options || {};
+    settingsMode = !!options.settings;
+    if (options.settings == null && step && Number(step) >= 1 && Number(step) <= 7) {
+      settingsMode = true;
+    }
+    openWizard(step ? Number(step) : null);
+  };
+
+  document.querySelectorAll("[data-open-profile-wizard]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var step = btn.getAttribute("data-wizard-step");
+      window.openProfileWizard(step ? Number(step) : undefined, { settings: true });
+    });
+  });
 
   function handleSaveResult(result, exitAfter) {
     if (!result.ok) {
@@ -203,9 +226,13 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     fillFromState(result.data);
-    if (result.data.profile_complete) {
+    if (result.data.profile_complete && !settingsMode) {
       closeWizard();
       window.location.reload();
+      return;
+    }
+    if (settingsMode && result.data.profile_complete) {
+      showSuccess("Settings saved.");
       return;
     }
     if (exitAfter) {

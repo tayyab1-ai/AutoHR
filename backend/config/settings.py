@@ -43,6 +43,10 @@ def _load_dotenv(path, *, override=False):
 
 _load_dotenv(ROOT_DIR / ".env", override=True)
 
+# Local HTTP OAuth (127.0.0.1) — required for Google token exchange in development.
+os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
+
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "dev-only-secret-key-for-autohr-frontend-demo-change-me",
@@ -68,15 +72,17 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "config.middleware.DevNoCacheMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "portal.middleware.HrLegacySessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "portal.middleware.HrSessionActivityMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
-    "portal.auth_backend.HrEmailBackend",
+    "portal.auth_backend.HrSessionBackend",
 ]
 
 LOGIN_URL = "/login/"
@@ -85,21 +91,6 @@ LOGIN_REDIRECT_URL = "/dashboard/"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
 SESSION_SAVE_EVERY_REQUEST = True
-
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "autohr-auth-otp",
-    }
-}
-
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER") or os.environ.get("EMAIL_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") or os.environ.get("EMAIL_PASS", "")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@autohr.local")
 
 ROOT_URLCONF = "config.urls"
 

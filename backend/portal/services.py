@@ -1,3 +1,5 @@
+import re
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -156,4 +158,44 @@ def save_finalized_job_description(job: JobPosting, content: str) -> JobPosting:
     job.approved_jd_content = content.strip()
     job.updated_at = now
     job.save(update_fields=["approved_jd_content", "updated_at"])
+    return job
+
+
+def inject_apply_link_into_job_description(job: JobPosting, form_url: str) -> JobPosting:
+    """Insert Google Form URL after Apply Here: in the finalized description."""
+    url = (form_url or "").strip()
+    if not url:
+        raise ValueError("Form URL is required.")
+    content = (job.approved_jd_content or job.ai_generated_jd_draft or "").strip()
+    if re.search(r"Apply Here:\s*\S+", content, re.MULTILINE | re.IGNORECASE):
+        content = re.sub(
+            r"(Apply Here:\s*)(\S[^\n]*)",
+            rf"\1{url}",
+            content,
+            count=1,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+    elif re.search(r"Apply Here:\s*$", content, re.MULTILINE | re.IGNORECASE):
+        content = re.sub(
+            r"(Apply Here:\s*)$",
+            rf"\1{url}",
+            content,
+            count=1,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+    else:
+        if "How to Apply" not in content:
+            content += "\n\nHow to Apply"
+        content += f"\nApply Here: {url}"
+    job.status = "approved"
+    return save_finalized_job_description(job, content)
+
+
+def save_job_description_draft(job: JobPosting, content: str) -> JobPosting:
+    """Keep edited JD on a draft job (e.g. before profile setup is complete)."""
+    now = timezone.now()
+    job.ai_generated_jd_draft = content.strip()
+    job.status = "draft"
+    job.updated_at = now
+    job.save(update_fields=["ai_generated_jd_draft", "status", "updated_at"])
     return job

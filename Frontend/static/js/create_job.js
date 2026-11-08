@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var errorBox = document.querySelector("[data-create-job-errors]");
   var formBox = document.querySelector("[data-create-job-fields]");
   var jdStep = document.querySelector("[data-create-job-jd-step]");
+  var applicationFormStep = document.querySelector("[data-create-job-form-step]");
   var stepper = document.querySelector("[data-create-job-stepper]");
 
   var jdLoading = document.querySelector("[data-jd-loading]");
@@ -29,18 +30,89 @@ document.addEventListener("DOMContentLoaded", function () {
     form.getAttribute("data-job-url-id-placeholder") || "00000000-0000-0000-0000-000000000001";
 
   function jobApiUrl(kind, jobId) {
-    var template =
-      kind === "prepare"
-        ? form.getAttribute("data-job-url-prepare-form")
-        : form.getAttribute("data-job-url-generate");
+    var attrMap = {
+      prepare: "data-job-url-prepare-form",
+      "save-draft": "data-job-url-save-draft-jd",
+      generate: "data-job-url-generate",
+      "form-config": "data-job-url-form-config",
+      "form-save": "data-job-url-form-save",
+      "create-form": "data-job-url-create-form",
+      "confirm-form": "data-job-url-confirm-form",
+    };
+    var attr = attrMap[kind] || "data-job-url-generate";
+    var template = form.getAttribute(attr);
     if (!template) {
-      return (
-        "/dashboard/jobs/" +
-        jobId +
-        (kind === "prepare" ? "/prepare-google-form/" : "/generate-jd/")
-      );
+      var suffixMap = {
+        prepare: "/prepare-google-form/",
+        "save-draft": "/save-draft-jd/",
+        generate: "/generate-jd/",
+        "form-config": "/form-config/",
+        "form-save": "/form-config/save/",
+        "create-form": "/create-google-form/",
+        "confirm-form": "/confirm-google-form/",
+      };
+      var suffix = suffixMap[kind] || "/generate-jd/";
+      return "/dashboard/jobs/" + jobId + suffix;
     }
     return template.split(jobUrlPlaceholder).join(jobId);
+  }
+
+  function isProfileComplete() {
+    return form.getAttribute("data-profile-complete") === "1";
+  }
+
+  function currentJdText() {
+    return (jdTextarea && jdTextarea.value ? jdTextarea.value : aiDraftSnapshot).trim();
+  }
+
+  function postJdForm(jobId, kind) {
+    var body = new FormData();
+    body.append("finalized_jd", currentJdText());
+    return fetch(jobApiUrl(kind, jobId), {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": getCsrfToken(),
+        Accept: "application/json",
+      },
+      body: body,
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { ok: res.ok, status: res.status, data: data };
+      });
+    });
+  }
+
+  var profileGateModal = document.querySelector("[data-profile-gate-modal]");
+  var profileGateComplete = document.querySelector("[data-profile-gate-complete]");
+  var profileGateExit = document.querySelector("[data-profile-gate-exit]");
+
+  function openProfileGateModal() {
+    if (!profileGateModal) return;
+    profileGateModal.classList.remove("d-none");
+    profileGateModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeProfileGateModal() {
+    if (!profileGateModal) return;
+    profileGateModal.classList.add("d-none");
+    profileGateModal.setAttribute("aria-hidden", "true");
+  }
+
+  if (profileGateComplete) {
+    profileGateComplete.addEventListener("click", function () {
+      closeProfileGateModal();
+      if (typeof window.openProfileWizard === "function") {
+        window.openProfileWizard();
+      }
+    });
+  }
+
+  if (profileGateExit) {
+    profileGateExit.addEventListener("click", function () {
+      closeProfileGateModal();
+      var jobsNav = document.querySelector('[data-panel-target="jobs"]');
+      if (jobsNav) jobsNav.click();
+    });
   }
 
   function getCsrfToken() {
@@ -512,51 +584,345 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  var formFieldList = document.querySelector("[data-form-field-list]");
+  var formConfigErrors = document.querySelector("[data-form-config-errors]");
+  var formConfigSuccess = document.querySelector("[data-form-config-success]");
+  var formTitleInput = document.querySelector("[data-form-title]");
+  var formDescInput = document.querySelector("[data-form-description]");
+  var formAllowMultiple = document.querySelector("[data-form-allow-multiple]");
+  var formCatalogSections = null;
+
+  function showFormConfigError(msg) {
+    if (!formConfigErrors) return;
+    formConfigErrors.textContent = msg;
+    formConfigErrors.classList.remove("d-none");
+    if (formConfigSuccess) formConfigSuccess.classList.add("d-none");
+  }
+
+  function showFormConfigSuccess(msg) {
+    if (!formConfigSuccess) return;
+    formConfigSuccess.textContent = msg;
+    formConfigSuccess.classList.remove("d-none");
+    if (formConfigErrors) formConfigErrors.classList.add("d-none");
+  }
+
+  function openApplicationFormStep() {
+    setStepperActive(3);
+    if (formBox) formBox.classList.add("d-none");
+    if (jdStep) jdStep.classList.add("d-none");
+    if (applicationFormStep) {
+      applicationFormStep.classList.remove("d-none");
+      applicationFormStep.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (currentJobId) loadFormConfig(currentJobId);
+  }
+
+  function renderFormFieldCatalog(catalog, selected) {
+    if (!formFieldList || !catalog) return;
+    formFieldList.innerHTML = "";
+    catalog.forEach(function (section) {
+      var wrap = document.createElement("div");
+      wrap.className = "form-catalog-section mb-3";
+      wrap.innerHTML = "<div class=\"fw-semibold small mb-2\">" + section.title + "</div>";
+      section.fields.forEach(function (field) {
+        var id = "ff_" + field.key;
+        var checked = selected.indexOf(field.key) !== -1;
+        var row = document.createElement("div");
+        row.className = "form-check";
+        row.innerHTML =
+          "<input class=\"form-check-input\" type=\"checkbox\" id=\"" +
+          id +
+          "\" data-form-field=\"" +
+          field.key +
+          "\" " +
+          (checked ? "checked" : "") +
+          ">" +
+          "<label class=\"form-check-label small\" for=\"" +
+          id +
+          "\">" +
+          field.label +
+          (field.required ? " *" : "") +
+          "</label>";
+        wrap.appendChild(row);
+      });
+      formFieldList.appendChild(wrap);
+    });
+  }
+
+  function collectSelectedFormFields() {
+    var keys = [];
+    if (!formFieldList) return keys;
+    formFieldList.querySelectorAll("[data-form-field]:checked").forEach(function (el) {
+      keys.push(el.getAttribute("data-form-field"));
+    });
+    return keys;
+  }
+
+  function loadFormConfig(jobId) {
+    return fetch(jobApiUrl("form-config", jobId), { headers: { Accept: "application/json" } })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data.ok) return;
+        formCatalogSections = data.catalog;
+        var cfg = data.config || {};
+        if (formTitleInput) formTitleInput.value = cfg.application_form_title || data.job.title + " - Candidate Application";
+        if (formDescInput) formDescInput.value = cfg.form_description || (data.profile_defaults && data.profile_defaults.default_form_description) || "";
+        if (formAllowMultiple) formAllowMultiple.checked = !!cfg.allow_multiple_responses;
+        var jobTitleEl = document.querySelector("[data-form-job-title]");
+        if (jobTitleEl) jobTitleEl.textContent = data.job.title;
+        var deadlineEl = document.querySelector("[data-form-job-deadline]");
+        if (deadlineEl) deadlineEl.textContent = data.job.application_deadline || "—";
+        renderFormFieldCatalog(data.catalog, cfg.selected_fields || []);
+        if (formReviewResumeFolder && cfg.resume_drive_folder_url) {
+          formReviewResumeFolder.value = cfg.resume_drive_folder_url;
+        }
+        return data;
+      });
+  }
+
+  function postJson(url, payload) {
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { ok: res.ok, data: data };
+      });
+    });
+  }
+
+  var formSelectAll = document.querySelector("[data-form-select-all]");
+  var formSelectRequired = document.querySelector("[data-form-select-required]");
+  if (formSelectAll) {
+    formSelectAll.addEventListener("click", function () {
+      if (!formFieldList) return;
+      formFieldList.querySelectorAll("[data-form-field]").forEach(function (el) {
+        el.checked = true;
+      });
+    });
+  }
+  if (formSelectRequired) {
+    formSelectRequired.addEventListener("click", function () {
+      if (!formCatalogSections || !formFieldList) return;
+      formFieldList.querySelectorAll("[data-form-field]").forEach(function (el) {
+        el.checked = false;
+      });
+      formCatalogSections.forEach(function (section) {
+        section.fields.forEach(function (field) {
+          if (field.required) {
+            var input = formFieldList.querySelector('[data-form-field="' + field.key + '"]');
+            if (input) input.checked = true;
+          }
+        });
+      });
+    });
+  }
+
+  var formSaveBtn = document.querySelector("[data-form-save-config]");
+  if (formSaveBtn) {
+    formSaveBtn.addEventListener("click", function () {
+      if (!currentJobId) return;
+      var payload = {
+        application_form_title: formTitleInput ? formTitleInput.value : "",
+        form_description: formDescInput ? formDescInput.value : "",
+        selected_fields: collectSelectedFormFields(),
+        allow_multiple_responses: formAllowMultiple ? formAllowMultiple.checked : false,
+      };
+      postJson(jobApiUrl("form-save", currentJobId), payload).then(function (result) {
+        if (!result.ok) {
+          showFormConfigError((result.data.errors && result.data.errors.__all__ && result.data.errors.__all__[0]) || "Could not save.");
+          return;
+        }
+        showFormConfigSuccess(result.data.message || "Saved.");
+      });
+    });
+  }
+
+  var formGenerateBtn = document.querySelector("[data-form-generate]");
+  var formReview = document.querySelector("[data-form-review]");
+  var formReviewUrl = document.querySelector("[data-form-review-url]");
+  var formReviewResumeFolder = document.querySelector("[data-form-resume-folder]");
+  var formReviewOpen = document.querySelector("[data-form-review-open]");
+  var formReviewEdit = document.querySelector("[data-form-review-edit]");
+  var formConfirmBtn = document.querySelector("[data-form-confirm]");
+
+  function showFormReview(resultData) {
+    if (!formReview) return;
+    formReview.classList.remove("d-none");
+    var url = resultData.form_url || "";
+    var editUrl = resultData.form_edit_url || url.replace("/viewform", "/edit");
+    if (formReviewUrl) formReviewUrl.value = url;
+    if (formReviewResumeFolder) {
+      formReviewResumeFolder.value = resultData.resume_drive_folder_url || formReviewResumeFolder.value || "";
+    }
+    if (formReviewOpen) formReviewOpen.href = url;
+    if (formReviewEdit) formReviewEdit.href = editUrl;
+    showFormConfigSuccess(resultData.message || "Form created — review the link below.");
+  }
+
+  function openJobCompleteStep(formUrl, message, finalizedJd) {
+    setStepperActive(4);
+    if (formBox) formBox.classList.add("d-none");
+    if (applicationFormStep) applicationFormStep.classList.add("d-none");
+    if (jdStep) jdStep.classList.remove("d-none");
+    if (jdEditor) jdEditor.classList.add("d-none");
+    if (jdComplete) jdComplete.classList.remove("d-none");
+    if (finalizedJd && jdTextarea) {
+      jdTextarea.value = finalizedJd;
+      aiDraftSnapshot = finalizedJd;
+      renderFormattedJd(finalizedJd);
+    }
+    var msg = document.querySelector("[data-jd-complete-text]");
+    if (msg) msg.textContent = message || "Application link saved in your job description.";
+    var link = document.querySelector("[data-form-url-open]");
+    if (link && formUrl) {
+      link.href = formUrl;
+      link.classList.remove("d-none");
+    }
+    if (jdStep) jdStep.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  if (formGenerateBtn) {
+    formGenerateBtn.addEventListener("click", function () {
+      if (!currentJobId) return;
+      formGenerateBtn.disabled = true;
+      if (formReview) formReview.classList.add("d-none");
+      var payload = {
+        application_form_title: formTitleInput ? formTitleInput.value : "",
+        form_description: formDescInput ? formDescInput.value : "",
+        selected_fields: collectSelectedFormFields(),
+        allow_multiple_responses: formAllowMultiple ? formAllowMultiple.checked : false,
+        finalized_jd: currentJdText(),
+      };
+      postJson(jobApiUrl("create-form", currentJobId), payload)
+        .then(function (result) {
+          if (!result.ok) {
+            if (result.data.profile_required) {
+              openProfileGateModal();
+              return;
+            }
+            var errMsg =
+              result.data.errors && (result.data.errors.google || result.data.errors.__all__)
+                ? [].concat(result.data.errors.google || result.data.errors.__all__).join(" ")
+                : "Could not create form.";
+            if (result.data.integrations_settings) {
+              errMsg += ' Open Account → Integrations (or "Profile & integrations") and reconnect Google Workspace.';
+            }
+            showFormConfigError(errMsg);
+            if (result.data.integrations_settings && window.AUTOHR_ACCOUNT && document.querySelector('[data-panel="account"]')) {
+              var goBtn = document.createElement("button");
+              goBtn.type = "button";
+              goBtn.className = "btn btn-sm btn-outline-danger mt-2";
+              goBtn.textContent = "Open integrations settings";
+              goBtn.addEventListener("click", function () {
+                var nav = document.querySelector('[data-panel-target="account"]');
+                if (nav) nav.click();
+                window.setTimeout(function () {
+                  var el = document.getElementById("account-integrations");
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 200);
+              });
+              var errBox = document.querySelector("[data-form-config-errors]");
+              if (errBox && !errBox.querySelector("[data-form-goto-integrations]")) {
+                goBtn.setAttribute("data-form-goto-integrations", "1");
+                errBox.appendChild(goBtn);
+              }
+            }
+            return;
+          }
+          showFormReview(result.data);
+        })
+        .finally(function () {
+          formGenerateBtn.disabled = false;
+        });
+    });
+  }
+
+  if (formConfirmBtn) {
+    formConfirmBtn.addEventListener("click", function () {
+      if (!currentJobId) return;
+      var url = formReviewUrl ? formReviewUrl.value.trim() : "";
+      if (!url) {
+        showFormConfigError("Paste or keep the Google Form link before continuing.");
+        return;
+      }
+      formConfirmBtn.disabled = true;
+      var folderUrl = formReviewResumeFolder ? formReviewResumeFolder.value.trim() : "";
+      postJson(jobApiUrl("confirm-form", currentJobId), {
+        form_url: url,
+        resume_drive_folder_url: folderUrl,
+      })
+        .then(function (result) {
+          if (!result.ok) {
+            showFormConfigError(
+              (result.data.errors && (result.data.errors.form_url || result.data.errors.__all__))
+                ? [].concat(result.data.errors.form_url || result.data.errors.__all__).join(" ")
+                : "Could not save form link."
+            );
+            return;
+          }
+          openJobCompleteStep(
+            result.data.form_url || url,
+            result.data.message || "Application link saved in your job description.",
+            result.data.finalized_jd
+          );
+        })
+        .finally(function () {
+          formConfirmBtn.disabled = false;
+        });
+    });
+  }
+
   if (postGoogleBtn) {
     postGoogleBtn.addEventListener("click", function () {
       if (!currentJobId) return;
       if (jdErrors) jdErrors.classList.add("d-none");
       postGoogleBtn.disabled = true;
 
-      var text = (jdTextarea && jdTextarea.value ? jdTextarea.value : aiDraftSnapshot).trim();
-
-      var body = new FormData();
-      body.append("finalized_jd", text.trim());
-
-      fetch(jobApiUrl("prepare", currentJobId), {
-        method: "POST",
-        headers: {
-          "X-CSRFToken": getCsrfToken(),
-          Accept: "application/json",
-        },
-        body: body,
-      })
-        .then(function (res) {
-          return res.json().then(function (data) {
-            return { ok: res.ok, status: res.status, data: data };
+      if (!isProfileComplete()) {
+        postJdForm(currentJobId, "save-draft")
+          .then(function (result) {
+            if (handleAuthFailure(result)) return;
+            if (!result.ok) {
+              showJdErrors(result.data.errors || result.data);
+              return;
+            }
+            aiDraftSnapshot = currentJdText();
+            openProfileGateModal();
+          })
+          .catch(function () {
+            showJdErrors({ _: ["Network error while saving your draft."] });
+          })
+          .finally(function () {
+            postGoogleBtn.disabled = false;
           });
-        })
+        return;
+      }
+
+      postJdForm(currentJobId, "prepare")
         .then(function (result) {
           if (handleAuthFailure(result)) return;
           if (!result.ok) {
             var payload = result.data || {};
-            if (payload.profile_required && typeof window.openProfileWizard === "function") {
-              showJdErrors(
-                payload.errors || {
-                  profile: ["Complete your HR profile setup before continuing past the job description step."],
-                }
-              );
-              window.openProfileWizard(1);
-              return;
+            if (payload.profile_required) {
+              form.setAttribute("data-profile-complete", "0");
+              return postJdForm(currentJobId, "save-draft").then(function (draftResult) {
+                if (draftResult.ok) openProfileGateModal();
+                else showJdErrors(draftResult.data.errors || draftResult.data);
+              });
             }
             showJdErrors(payload.errors || payload);
             return;
           }
-          setStepperActive(3);
-          if (jdEditor) jdEditor.classList.add("d-none");
-          if (jdComplete) jdComplete.classList.remove("d-none");
-          var msg = document.querySelector("[data-jd-complete-text]");
-          if (msg && result.data.message) msg.textContent = result.data.message;
+          aiDraftSnapshot = currentJdText();
+          openApplicationFormStep();
         })
         .catch(function () {
           showJdErrors({ _: ["Network error while saving the finalized description."] });
@@ -601,19 +967,52 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .then(function (result) {
         if (!result.ok || !result.data.ok) return;
-        currentJobId = result.data.job_id;
-        var title = result.data.title || "Draft";
-        if (result.data.has_jd && result.data.ai_generated_jd) {
-          openJdStep(title, false);
-          showJdEditor(result.data.ai_generated_jd, title);
-        } else {
-          setStepperActive(1);
-          if (formBox) formBox.classList.remove("d-none");
-          if (jdStep) jdStep.classList.add("d-none");
-          var titleInput = form.querySelector('[name="title"]');
-          if (titleInput && title) titleInput.value = title;
-          syncPreview();
+        var d = result.data;
+        currentJobId = d.job_id;
+        var title = d.title || "Draft";
+        var step = Number(d.resume_step) || 2;
+        var sub = d.resume_substep || "";
+
+        if (step === 4) {
+          openJobCompleteStep(d.form_url, "Continue your draft from the publish step.", d.jd_text || d.approved_jd);
+          return;
         }
+        if (step === 3) {
+          openApplicationFormStep();
+          var resumeReview = sub === "form_review";
+          loadFormConfig(currentJobId).then(function () {
+            if (resumeReview) {
+              showFormReview({
+                form_url: d.form_url,
+                form_edit_url: d.form_edit_url,
+                resume_drive_folder_url: d.resume_drive_folder_url,
+                message: "Continue reviewing your Google Form.",
+              });
+            } else if (formReview) {
+              formReview.classList.add("d-none");
+            }
+          });
+          return;
+        }
+        if (step === 2) {
+          if (sub === "jd_generate") {
+            openJdStep(title, false);
+            showJdRetry();
+          } else {
+            openJdStep(title, false);
+            var jdBody = d.jd_text || d.approved_jd || d.ai_generated_jd || "";
+            if (jdBody) showJdEditor(jdBody, title);
+            else showJdRetry();
+          }
+          return;
+        }
+        setStepperActive(1);
+        if (formBox) formBox.classList.remove("d-none");
+        if (jdStep) jdStep.classList.add("d-none");
+        if (applicationFormStep) applicationFormStep.classList.add("d-none");
+        var titleInput = form.querySelector('[name="title"]');
+        if (titleInput && title) titleInput.value = title;
+        syncPreview();
       });
   };
 });

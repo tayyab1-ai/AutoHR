@@ -15,6 +15,7 @@ from .profile_services import (
     profile_state,
     save_step1,
     save_step2,
+    save_step3,
     save_step6,
     save_step_preferences,
 )
@@ -47,7 +48,9 @@ def profile_save_step(request, step: int):
         errors = save_step1(user, setup, data)
     elif step == 2:
         errors = save_step2(user, setup, data)
-    elif step in (3, 4, 5):
+    elif step == 3:
+        errors = save_step3(user, setup, data)
+    elif step in (4, 5):
         save_step_preferences(setup, step, data)
         errors = []
     elif step == 6:
@@ -80,9 +83,12 @@ def google_oauth_start(request):
     request.session["google_oauth_flow"] = flow_name
     request.session["google_oauth_user_id"] = str(request.user.db_user.id)
     try:
-        url = authorization_url(flow_name, state)
+        url, code_verifier = authorization_url(flow_name, state)
     except RuntimeError:
         return redirect(reverse("dashboard") + "?integration=oauth_not_configured")
+    request.session["google_oauth_code_verifier"] = code_verifier
+    request.session.modified = True
+    request.session.save()
     return redirect(url)
 
 
@@ -104,19 +110,28 @@ def google_oauth_callback(request):
     if str(db_user.id) != str(user_id):
         return redirect(reverse("dashboard") + "?integration=failed")
 
+    code_verifier = request.session.get("google_oauth_code_verifier")
     try:
-        creds = exchange_code(flow_name, state, code)
+        creds = exchange_code(flow_name, state, code, code_verifier=code_verifier)
         email = email_from_credentials(creds) or request.GET.get("email", "")
         save_credentials(db_user.id, flow_name, creds, email=email)
-        save_step_preferences(
-            ensure_profile_setup(request.user.db_user),
-            3 if flow_name == "gmail" else (4 if flow_name == "google_workspace" else 5),
-            {"oauth_connected": True, "provider": provider_for_flow(flow_name)},
-        )
+        setup = ensure_profile_setup(request.user.db_user)
+        if flow_name == "google_workspace":
+            save_step_preferences(
+                setup,
+                3,
+                {"oauth_connected": True, "provider": provider_for_flow(flow_name)},
+            )
+        elif flow_name == "google_calendar":
+            save_step_preferences(
+                setup,
+                5,
+                {"oauth_connected": True, "provider": provider_for_flow(flow_name)},
+            )
     except Exception:
         return redirect(reverse("dashboard") + "?integration=failed")
 
-    for key in ("google_oauth_state", "google_oauth_flow", "google_oauth_user_id"):
+    for key in ("google_oauth_state", "google_oauth_flow", "google_oauth_user_id", "google_oauth_code_verifier"):
         request.session.pop(key, None)
 
     return redirect(reverse("dashboard") + "?integration=connected&flow=" + flow_name)

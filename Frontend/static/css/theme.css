@@ -385,7 +385,7 @@ a { text-decoration: none; }
   background: #fbf8f0; background-image: radial-gradient(circle at 10% 20%, rgba(253, 230, 138, 0.35), transparent 50%);
   border-radius: 32px;
   box-shadow: 0 35px 85px -15px rgba(22, 29, 39, 0.35), 0 10px 30px -10px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
-  display: grid; grid-template-columns: 1fr 1.1fr; padding: 16px; gap: 16px;
+  display: grid; grid-template-columns: minmax(320px, 420px) 1fr; padding: 16px; gap: 20px;
   animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes modalFadeIn { from { opacity: 0; transform: translateY(16px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -437,8 +437,8 @@ a { text-decoration: none; }
 .auth-footer-row button { background: none; border: none; font-family: inherit; font-size: inherit; color: #2b2a27; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
 .visual-section {
-  position: relative; border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;
-  background: linear-gradient(160deg, #151a22 0%, #1f2732 55%, #2a2010 100%); min-height: 560px;
+  position: relative; border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
+  background: linear-gradient(160deg, #151a22 0%, #1f2732 55%, #2a2010 100%); min-height: 520px;
 }
 .visual-section::before {
   content: ""; position: absolute; inset: 0;

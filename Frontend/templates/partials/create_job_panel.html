@@ -4,7 +4,9 @@
   <div class="db-step-separator"></div>
   <div class="db-step-item" data-step-indicator="2"><span class="db-step-num">2</span><span>AI Job Description</span></div>
   <div class="db-step-separator"></div>
-  <div class="db-step-item" data-step-indicator="3"><span class="db-step-num">3</span><span>Publish to Boards</span></div>
+  <div class="db-step-item" data-step-indicator="3"><span class="db-step-num">3</span><span>Application Form</span></div>
+  <div class="db-step-separator"></div>
+  <div class="db-step-item" data-step-indicator="4"><span class="db-step-num">4</span><span>Publish</span></div>
 </div>
 
 <div class="row g-4" data-create-job-fields>
@@ -24,7 +26,13 @@
           method="post"
           data-job-url-generate="{% url 'generate_job_jd' job_id='00000000-0000-0000-0000-000000000001' %}"
           data-job-url-prepare-form="{% url 'prepare_google_form' job_id='00000000-0000-0000-0000-000000000001' %}"
+          data-job-url-save-draft-jd="{% url 'save_job_draft_jd' job_id='00000000-0000-0000-0000-000000000001' %}"
+          data-job-url-form-config="{% url 'job_form_config_api' job_id='00000000-0000-0000-0000-000000000001' %}"
+          data-job-url-form-save="{% url 'job_form_config_save' job_id='00000000-0000-0000-0000-000000000001' %}"
+          data-job-url-create-form="{% url 'job_create_google_form' job_id='00000000-0000-0000-0000-000000000001' %}"
+          data-job-url-confirm-form="{% url 'job_confirm_google_form' job_id='00000000-0000-0000-0000-000000000001' %}"
           data-job-url-id-placeholder="00000000-0000-0000-0000-000000000001"
+          data-profile-complete="{% if profile_complete %}1{% else %}0{% endif %}"
         >
           {% csrf_token %}
 
@@ -354,16 +362,30 @@
             <button type="button" class="btn-db-secondary d-none" data-jd-preview-mode><i class="bi bi-eye"></i> Preview formatted</button>
           </div>
           <button type="button" class="btn-db-primary w-100 justify-content-center py-2 mt-4" data-post-google-form>
-            <i class="bi bi-file-earmark-plus"></i> Post Create Google Form
+            <i class="bi bi-ui-checks-grid"></i> Configure application form
           </button>
-          <p class="small text-muted text-center mt-2 mb-0">Saves the finalized description to the database. Google Form automation is coming next.</p>
+          <p class="small text-muted text-center mt-2 mb-0">Choose application questions and generate a Google Form when profile setup is complete.</p>
+        </div>
+
+        <div class="profile-gate-backdrop d-none" data-profile-gate-modal aria-hidden="true">
+          <div class="profile-gate-modal" role="dialog" aria-modal="true" aria-labelledby="profileGateTitle">
+            <h2 class="h5 fw-bold mb-2" id="profileGateTitle">Complete profile to continue</h2>
+            <p class="small text-muted mb-3" data-profile-gate-message>
+              Your job description has been saved to <strong>Drafts</strong>. Finish profile setup to create the Google Form, or exit and continue later from the Jobs tab.
+            </p>
+            <div class="d-flex flex-column gap-2">
+              <button type="button" class="btn btn-db-primary w-100" data-profile-gate-complete>Complete profile</button>
+              <button type="button" class="btn btn-db-secondary w-100" data-profile-gate-exit>Exit</button>
+            </div>
+          </div>
         </div>
 
         <div class="d-none db-save-result mt-2" data-jd-complete>
           <div class="db-save-mark"><i class="bi bi-check-lg"></i></div>
-          <h3>Ready for Google Form</h3>
-          <p data-jd-complete-text>Your finalized job description is stored.</p>
-          <button type="button" class="btn-db-primary" data-go-panel="jobs">Go to Jobs <i class="bi bi-arrow-right"></i></button>
+          <h3>Application form ready</h3>
+          <p data-jd-complete-text>Your Google Form link is ready to share with candidates.</p>
+          <a class="btn btn-db-primary d-none mb-2 w-100" data-form-url-open target="_blank" rel="noopener">Open Google Form</a>
+          <button type="button" class="btn-db-secondary w-100" data-go-panel="jobs">Go to Jobs <i class="bi bi-arrow-right"></i></button>
         </div>
       </div>
     </div>
@@ -376,8 +398,66 @@
           <li class="mb-2">Intake fields are validated and saved to PostgreSQL.</li>
           <li class="mb-2">Groq AI writes a full description using your tone and requirements.</li>
           <li class="mb-2">You review or edit the text; we store the finalized version.</li>
-          <li>Google Form creation will use that finalized copy in a later update.</li>
+          <li>Select application questions and generate a Google Form.</li>
         </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 d-none" data-create-job-form-step>
+  <div class="col-12 col-lg-8">
+    <div class="db-card">
+      <div class="db-card-header">
+        <h2 class="db-card-title mb-0"><i class="bi bi-ui-checks text-warning"></i> Candidate application form</h2>
+      </div>
+      <div class="db-card-body">
+        <div class="alert alert-danger py-2 px-3 small d-none" data-form-config-errors role="alert"></div>
+        <div class="alert alert-success py-2 px-3 small d-none" data-form-config-success role="alert"></div>
+        <div class="row g-2 mb-3">
+          <div class="col-12"><label class="form-label small">Application form title</label><input class="db-input w-100" data-form-title placeholder="Job title - Candidate Application"></div>
+          <div class="col-12"><label class="form-label small">Form description *</label><textarea class="db-input w-100" rows="3" data-form-description placeholder="Shown to candidates at the top of the form"></textarea></div>
+          <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" data-form-allow-multiple id="form_allow_multi"><label class="form-check-label" for="form_allow_multi">Allow multiple responses</label></div></div>
+        </div>
+        <p class="small fw-semibold mb-2">Select questions to include (standard sections)</p>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <button type="button" class="btn btn-db-secondary btn-sm" data-form-select-all>Select all</button>
+          <button type="button" class="btn btn-db-secondary btn-sm" data-form-select-required>Required only</button>
+        </div>
+        <div data-form-field-list class="form-field-catalog"></div>
+        <button type="button" class="btn btn-db-secondary w-100 mt-3" data-form-save-config>Save form configuration</button>
+        <button type="button" class="btn btn-db-primary w-100 justify-content-center py-2 mt-2" data-form-generate>
+          <i class="bi bi-google"></i> Generate Google Form
+        </button>
+
+        <div class="d-none mt-4 pt-3 border-top" data-form-review>
+          <div class="alert alert-warning py-2 px-3 small mb-3" role="status">
+            <strong>Resume upload</strong> is not added automatically. Open the form in Google, add a <strong>File upload</strong> question if you need CVs, then paste your <strong>resume folder</strong> link and click Continue below.
+          </div>
+          <label class="form-label small fw-semibold" for="form_review_url">Candidate form link</label>
+          <input id="form_review_url" class="db-input w-100 mb-2" type="url" data-form-review-url placeholder="https://docs.google.com/forms/d/.../viewform">
+          <label class="form-label small fw-semibold mt-2" for="form_review_resume_folder">Resume folder link (Google Drive)</label>
+          <input id="form_review_resume_folder" class="db-input w-100 mb-1" type="url" data-form-resume-folder placeholder="https://drive.google.com/drive/folders/...">
+          <p class="small text-muted mb-3">Folder where uploaded CVs are stored — saved with this job so you can open all resumes in one place.</p>
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <a class="btn btn-db-secondary btn-sm" data-form-review-open target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Open form</a>
+            <a class="btn btn-db-secondary btn-sm" data-form-review-edit target="_blank" rel="noopener"><i class="bi bi-pencil-square"></i> Edit in Google</a>
+          </div>
+          <button type="button" class="btn btn-db-primary w-100 justify-content-center py-2" data-form-confirm>
+            <i class="bi bi-check2-circle"></i> Continue — add link to job description
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="db-card db-preview-sticky">
+      <div class="db-card-header"><h2 class="db-card-title">Job context</h2></div>
+      <div class="db-card-body small text-muted">
+        <p class="mb-1"><strong data-form-job-title>—</strong></p>
+        <p class="mb-0">Deadline: <span data-form-job-deadline>—</span></p>
+        <hr>
+        <p class="mb-0">Job requirements are loaded from your saved posting. Job-specific skill questions can be refined in a later AI pass.</p>
       </div>
     </div>
   </div>
