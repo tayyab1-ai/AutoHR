@@ -16,8 +16,8 @@
 .db-sidebar.is-collapsed { width: 80px; }
 
 .db-sidebar-header { padding: 20px 18px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; }
-.db-logo-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--pill-radius); font-size: 14.5px; font-weight: 700; color: var(--text-main); box-shadow: var(--shadow-sm); }
-.db-logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary-accent); box-shadow: 0 0 10px rgba(245, 190, 66, 0.9); animation: pulseGold 2s infinite; }
+.db-logo-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--pill-radius); font-size: 14.5px; font-weight: 700; color: #eab308; box-shadow: var(--shadow-sm); }
+.db-logo-dot { width: 8px; height: 8px; border-radius: 50%; background: #facc15; box-shadow: 0 0 10px rgba(250, 204, 21, 0.95); animation: pulseGold 2s infinite; }
 
 .db-nav { flex: 1; padding: 14px 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 .db-nav-item {
