@@ -16,7 +16,7 @@ from .services import (
     save_finalized_job_description,
     save_job_description_draft,
 )
-from .session_user import build_hr_profile, workspace_shell
+from .session_user import build_hr_profile, workspace_shell_for_company
 
 
 def _session_actor(request):
@@ -69,7 +69,7 @@ def dashboard(request):
         }
         for j in drafts
     ]
-    shell = workspace_shell(active_jobs=len([j for j in jobs if j.get("status") != "draft"]))
+    shell = workspace_shell_for_company(company, jobs=jobs)
     hr = build_hr_profile(user, company)
     pcomplete = is_profile_complete(user)
 

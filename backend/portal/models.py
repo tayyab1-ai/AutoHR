@@ -121,6 +121,10 @@ class JobPosting(models.Model):
 
     job_post_tone = models.CharField(max_length=60)
     custom_tone_instructions = models.TextField(blank=True, null=True)
+    cv_skill_weight = models.IntegerField(default=50)
+    cv_experience_weight = models.IntegerField(default=30)
+    cv_education_weight = models.IntegerField(default=20)
+    cv_min_passing_score = models.IntegerField(default=60)
     shortlist_after_cv_count = models.IntegerField(default=25)
     shortlist_after_interview_count = models.IntegerField(default=10)
 
@@ -153,6 +157,98 @@ class JobResponsibility(models.Model):
     class Meta:
         managed = False
         db_table = "job_responsibilities"
+
+
+class Candidate(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(unique=True)
+    full_name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    linkedin_url = models.TextField(blank=True, null=True)
+    location = models.CharField(max_length=150, blank=True, null=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "candidates"
+
+    def __str__(self):
+        return f"{self.full_name} <{self.email}>"
+
+
+class Application(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job_posting = models.ForeignKey(
+        JobPosting,
+        on_delete=models.CASCADE,
+        db_column="job_posting_id",
+        related_name="applications",
+    )
+    candidate = models.ForeignKey(
+        Candidate,
+        on_delete=models.CASCADE,
+        db_column="candidate_id",
+        related_name="applications",
+    )
+    source = models.CharField(max_length=32, default="manual_upload")
+    source_message_id = models.CharField(max_length=255, blank=True, null=True)
+    resume_file_url = models.TextField()
+    resume_original_filename = models.CharField(max_length=255)
+    resume_mime_type = models.CharField(max_length=100)
+    status = models.CharField(max_length=32, default="applied")
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "applications"
+        unique_together = [["job_posting", "candidate"]]
+
+
+class ParsedCv(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.OneToOneField(
+        Application,
+        on_delete=models.CASCADE,
+        db_column="application_id",
+        related_name="parsed_cv",
+    )
+    raw_text = models.TextField()
+    structured_profile = models.JSONField(default=dict)
+    extracted_skills = ArrayField(models.CharField(max_length=150), default=list)
+    extracted_experience_years = models.DecimalField(max_digits=4, decimal_places=1, blank=True, null=True)
+    highest_degree = models.CharField(max_length=150, blank=True, null=True)
+    parsing_model = models.CharField(max_length=100)
+    parsed_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "parsed_cvs"
+
+
+class CvEvaluation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.OneToOneField(
+        Application,
+        on_delete=models.CASCADE,
+        db_column="application_id",
+        related_name="cv_evaluation",
+    )
+    overall_score = models.DecimalField(max_digits=5, decimal_places=2)
+    skill_match_score = models.DecimalField(max_digits=5, decimal_places=2)
+    experience_match_score = models.DecimalField(max_digits=5, decimal_places=2)
+    education_match_score = models.DecimalField(max_digits=5, decimal_places=2)
+    match_breakdown = models.JSONField(default=dict)
+    ai_summary = models.TextField()
+    strengths = ArrayField(models.TextField(), default=list)
+    concerns = ArrayField(models.TextField(), default=list)
+    is_shortlisted = models.BooleanField(default=False)
+    evaluated_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = "cv_evaluations"
 
 
 # Django-managed profile & integration tables

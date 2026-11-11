@@ -285,9 +285,38 @@ document.addEventListener("DOMContentLoaded", function () {
     var skillsHidden = form.querySelector('[name="required_skills_csv"]');
     set("[data-preview-skills]", skillsHidden && skillsHidden.value ? skillsHidden.value.replace(/,/g, ", ") : "—");
     set("[data-preview-tone]", selectedText(form.querySelector('[name="job_post_tone"]')));
+    var wSkill = Number(form.querySelector('[name="cv_skill_weight"]')?.value || 50);
+    var wExp = Number(form.querySelector('[name="cv_experience_weight"]')?.value || 30);
+    var wEdu = Number(form.querySelector('[name="cv_education_weight"]')?.value || 20);
+    var minPass = form.querySelector('[name="cv_min_passing_score"]')?.value || "60";
+    set("[data-preview-cv-weights]", wSkill + "% / " + wExp + "% / " + wEdu + "%");
+    set("[data-preview-cv-cutoff]", minPass + "%");
+    var weightBadge = document.querySelector("[data-cv-weight-total]");
+    if (weightBadge) {
+      var sum = wSkill + wExp + wEdu;
+      weightBadge.textContent = "Total: " + sum + "%";
+      weightBadge.classList.toggle("db-badge-live", sum === 100);
+      weightBadge.classList.toggle("db-badge-rejected", sum !== 100);
+    }
     set("[data-preview-shortlist-cv]", form.querySelector('[name="shortlist_after_cv_count"]')?.value || "25");
     set("[data-preview-shortlist-iv]", form.querySelector('[name="shortlist_after_interview_count"]')?.value || "10");
   }
+
+  form.querySelectorAll("[data-cv-preset]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var parts = (btn.getAttribute("data-cv-preset") || "").split(",");
+      if (parts.length < 4) return;
+      var setVal = function (name, val) {
+        var el = form.querySelector('[name="' + name + '"]');
+        if (el) el.value = val;
+      };
+      setVal("cv_skill_weight", parts[0]);
+      setVal("cv_experience_weight", parts[1]);
+      setVal("cv_education_weight", parts[2]);
+      setVal("cv_min_passing_score", parts[3]);
+      syncPreview();
+    });
+  });
 
   form.addEventListener("input", syncPreview);
   form.addEventListener("change", function () {

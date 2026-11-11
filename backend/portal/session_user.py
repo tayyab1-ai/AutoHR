@@ -1,6 +1,11 @@
 """Helpers for the signed-in HR user and company."""
 
 
+from django.utils.html import escape
+
+from .cv_scoring_service import applications_for_company
+
+
 def build_hr_profile(db_user, company) -> dict:
     parts = (db_user.full_name or "").split()
     initials = "".join(p[0].upper() for p in parts[:2] if p) or "HR"
@@ -84,3 +89,133 @@ def workspace_shell(*, active_jobs: int = 0) -> dict:
         "chart_values": [0, 0, 0, 0, 0, 0],
         "chart_max": 1,
     }
+
+
+def workspace_shell_for_company(company, *, jobs: list[dict]) -> dict:
+    """Build real dashboard KPIs, CV candidate scorecards, funnel, and Kanban pipeline."""
+    active_jobs = len([j for j in jobs if j.get("status") != "draft"])
+    candidates = applications_for_company(company)
+    total_apps = len(candidates)
+    shortlisted = [c for c in candidates if c["status"] == "shortlisted"]
+    interviewing = [c for c in candidates if c["status"] == "interviewing"]
+    rejected = [c for c in candidates if c["status"] == "rejected"]
+    screened = [c for c in candidates if c["status"] == "screened"]
+
+    avg_score = round(sum(c["overall_score"] for c in candidates) / total_apps, 1) if total_apps else None
+    shortlisted_count = len(shortlisted)
+    interview_count = len(interviewing)
+
+    shell = workspace_shell(active_jobs=active_jobs)
+    shell["kpis"] = [
+        {
+            "label": "Active Job Postings",
+            "value": str(active_jobs),
+            "trend": f"{len(jobs)} total job(s)",
+            "icon": "bi-briefcase-fill",
+            "tone": "gold",
+            "hint": "Non-draft jobs created in your company workspace.",
+        },
+        {
+            "label": "Applications Received",
+            "value": str(total_apps),
+            "trend": f"Avg CV score: {avg_score}%" if avg_score is not None else "Upload or sync CVs",
+            "icon": "bi-people-fill",
+            "tone": "green",
+            "hint": "Total CVs evaluated against your job CV scoring metrics.",
+        },
+        {
+            "label": "AI Shortlisted",
+            "value": str(shortlisted_count),
+            "trend": (
+                f"{round((shortlisted_count / total_apps) * 100)}% pass rate"
+                if total_apps
+                else "No CVs scored yet"
+            ),
+            "icon": "bi-stars",
+            "tone": "purple",
+            "hint": "Candidates meeting the job's minimum passing CV score and shortlist cap.",
+        },
+        {
+            "label": "Interviews Scheduled",
+            "value": str(interview_count),
+            "trend": "Interview module next" if interview_count == 0 else "Active candidates",
+            "icon": "bi-camera-video-fill",
+            "tone": "teal",
+            "hint": "Candidates invited or scheduled for AI interviews.",
+        },
+    ]
+
+    if total_apps > 0 or jobs:
+        base = max(total_apps, 1)
+        shell["funnel"] = [
+            {
+                "stage": "Applied",
+                "count": total_apps,
+                "pct": 100 if total_apps else 0,
+                "css": "post",
+            },
+            {
+                "stage": "Evaluated",
+                "count": total_apps,
+                "pct": 100 if total_apps else 0,
+                "css": "screen",
+            },
+            {
+                "stage": "Shortlisted",
+                "count": shortlisted_count,
+                "pct": round((shortlisted_count / base) * 100) if total_apps else 0,
+                "css": "interview",
+            },
+            {
+                "stage": "Interview",
+                "count": interview_count,
+                "pct": round((interview_count / base) * 100) if total_apps else 0,
+                "css": "decide",
+            },
+        ]
+
+    if total_apps > 0:
+        shell["kanban"] = [
+            {
+                "title": "Evaluated (Screened)",
+                "count": len(screened),
+                "candidates": [{"name": c["name"], "role": c["role"], "score": c["score"]} for c in screened[:12]],
+            },
+            {
+                "title": "Shortlisted",
+                "count": shortlisted_count,
+                "candidates": [
+                    {"name": c["name"], "role": c["role"], "score": c["score"]} for c in shortlisted[:12]
+                ],
+            },
+            {
+                "title": "Interviewing",
+                "count": interview_count,
+                "candidates": [
+                    {"name": c["name"], "role": c["role"], "score": c["score"]} for c in interviewing[:12]
+                ],
+            },
+            {
+                "title": "Not Progressing",
+                "count": len(rejected),
+                "candidates": [{"name": c["name"], "role": c["role"], "score": c["score"]} for c in rejected[:12]],
+            },
+        ]
+
+    activity = []
+    for c in candidates[:5]:
+        badge = "Shortlisted" if c["status"] == "shortlisted" else ("Not progressing" if c["status"] == "rejected" else "Screened")
+        activity.append(
+            {
+                "tone": "green" if c["status"] == "shortlisted" else "gold",
+                "icon": "bi-file-earmark-check-fill",
+                "text": (
+                    f"<strong>{escape(c['name'])}</strong> scored <strong>{c['overall_score']}%</strong> "
+                    f"for <strong>{escape(c['role'])}</strong>"
+                ),
+                "meta": f"{badge} · {c['applied']}",
+            }
+        )
+    shell["activity"] = activity
+    shell["candidates"] = candidates
+    return shell

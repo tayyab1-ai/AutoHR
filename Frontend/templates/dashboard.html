@@ -237,6 +237,7 @@
                   <td>{{ job.applicants }}</td>
                   <td>
                     {% if job.status == 'live' %}<span class="db-badge db-badge-live"><i class="bi bi-dot"></i> Live</span>
+                    {% elif job.status == 'approved' %}<span class="db-badge db-badge-scheduled"><i class="bi bi-check2-circle"></i> Approved</span>
                     {% elif job.status == 'draft' %}<span class="db-badge db-badge-draft"><i class="bi bi-dot"></i> Draft</span>
                     {% else %}<span class="db-badge db-badge-closed"><i class="bi bi-dot"></i> Closed</span>{% endif %}
                   </td>
@@ -262,76 +263,78 @@
 
       <!-- ================= PANEL: APPLICATIONS ================= -->
       <div class="db-panel" data-panel="applications">
+        <div class="db-toolbar">
+          <select class="db-select" data-cv-job-filter>
+            <option value="">All Jobs</option>
+            {% for job in jobs %}
+            <option value="{{ job.id }}">{{ job.title }}</option>
+            {% endfor %}
+          </select>
+          <select class="db-select" data-cv-status-filter>
+            <option value="">All Statuses</option>
+            <option value="shortlisted">Shortlisted</option>
+            <option value="screened">Screened</option>
+            <option value="rejected">Not Progressing</option>
+          </select>
+          <button type="button" class="btn-db-primary ms-auto" data-open-score-cv-modal>
+            <i class="bi bi-file-earmark-arrow-up"></i> Upload &amp; Score CV
+          </button>
+        </div>
+
+        <div class="db-card mb-3" data-cv-metrics-card>
+          <div class="db-card-header flex-wrap gap-2">
+            <h2 class="db-card-title mb-0">
+              <i class="bi bi-speedometer2 text-warning"></i> CV Scoring Metrics
+              <span class="text-muted fw-normal small" data-cv-metrics-job-label></span>
+            </h2>
+            <span class="db-badge db-badge-live ms-auto" data-cv-cfg-total>Total: 100%</span>
+          </div>
+          <div class="db-card-body">
+            <div class="alert py-2 px-3 small d-none mb-3" data-cv-metrics-toast role="status"></div>
+            <div class="cv-metrics-grid" data-cv-metrics-fields>
+              <div>
+                <label class="form-label small fw-semibold mb-1" for="cv_cfg_job">Configure for Job</label>
+                <select class="db-select w-100" id="cv_cfg_job" data-cv-cfg-job></select>
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1" for="cv_cfg_skill">Skills Weight (%)</label>
+                <input type="number" min="0" max="100" class="db-input w-100" id="cv_cfg_skill" data-cv-cfg-skill value="50">
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1" for="cv_cfg_exp">Experience Weight (%)</label>
+                <input type="number" min="0" max="100" class="db-input w-100" id="cv_cfg_exp" data-cv-cfg-exp value="30">
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1" for="cv_cfg_edu">Education Weight (%)</label>
+                <input type="number" min="0" max="100" class="db-input w-100" id="cv_cfg_edu" data-cv-cfg-edu value="20">
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1" for="cv_cfg_pass">Min Pass Cutoff (%)</label>
+                <input type="number" min="0" max="100" class="db-input w-100" id="cv_cfg_pass" data-cv-cfg-pass value="60">
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1" for="cv_cfg_cap">Shortlist Cap</label>
+                <input type="number" min="20" max="30" class="db-input w-100" id="cv_cfg_cap" data-cv-cfg-cap value="25">
+              </div>
+              <div>
+                <button type="button" class="btn-db-secondary w-100 justify-content-center" data-cv-save-metrics>
+                  <i class="bi bi-check2-circle"></i> Save &amp; Recalculate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="db-split-grid">
           <div class="db-card db-candidate-list-pane">
-            <div class="db-card-header"><h2 class="db-card-title">Candidates <span class="text-muted fw-normal small">({{ candidates|length }})</span></h2></div>
-            {% for c in candidates %}
-            <div class="db-candidate-card {% if forloop.first %}is-selected{% endif %}" data-candidate-card="{{ c.id }}">
-              <span class="avatar-circle" style="width:38px;height:38px;font-size:13px;">{{ c.initials }}</span>
-              <div class="flex-grow-1">
-                <div class="d-flex justify-content-between">
-                  <span class="fw-semibold" style="font-size:13.5px;">{{ c.name }}</span>
-                  <span class="fw-bold" style="font-size:13px; color:#059669;">{{ c.score }}%</span>
-                </div>
-                <div class="text-muted" style="font-size:11.5px;">{{ c.role }} &middot; {{ c.city }}</div>
-                <div class="db-score-bar-bg"><div class="db-score-bar-fill" data-score="0" data-final-score="{{ c.score }}" style="width:0%;"></div></div>
-                <div class="text-muted mt-1" style="font-size:11px;">{{ c.applied }}</div>
-              </div>
+            <div class="db-card-header">
+              <h2 class="db-card-title">Candidates <span class="text-muted fw-normal small">(<span data-cv-candidate-count>{{ candidates|length }}</span>)</span></h2>
             </div>
-            {% empty %}
-            <p class="text-muted small px-3 pb-3 mb-0">Applications and AI screening will be available in a future update.</p>
-            {% endfor %}
+            <div data-cv-candidate-list></div>
           </div>
 
-          <div class="db-card">
-            {% for c in candidates %}
-            <div class="{% if not forloop.first %}d-none{% endif %}" data-candidate-detail="{{ c.id }}">
-              <div class="db-card-header">
-                <div class="d-flex align-items-center gap-3">
-                  <span class="avatar-circle" style="width:48px;height:48px;font-size:16px;">{{ c.initials }}</span>
-                  <div>
-                    <h2 class="db-card-title mb-0">{{ c.name }}</h2>
-                    <div class="text-muted small">{{ c.role }} &middot; {{ c.city }}, Pakistan</div>
-                  </div>
-                </div>
-                {% if c.status == 'shortlisted' %}<span class="db-badge db-badge-shortlisted">Shortlisted</span>
-                {% elif c.status == 'interviewing' %}<span class="db-badge db-badge-interviewing">Interviewing</span>
-                {% else %}<span class="db-badge db-badge-rejected">Not Progressing</span>{% endif %}
-              </div>
-              <div class="db-card-body">
-                <div class="db-tab-bar" data-tab-group="cand-{{ c.id }}">
-                  <button type="button" class="db-tab-btn is-active" data-tab-btn="overview">Overview</button>
-                  <button type="button" class="db-tab-btn" data-tab-btn="breakdown">Score Breakdown</button>
-                </div>
-
-                <div class="db-tab-panel is-active" data-tab-panel="overview" data-tab-panel-group="cand-{{ c.id }}">
-                  <p class="small text-muted mb-1 fw-semibold">Experience</p>
-                  <p class="small mb-3">{{ c.experience }}</p>
-                  <p class="small text-muted mb-1 fw-semibold">Education</p>
-                  <p class="small mb-3">{{ c.education }}</p>
-                  <p class="small text-muted mb-1 fw-semibold">Skills</p>
-                  <div class="db-skill-list mb-0">{% for skill in c.skills %}<span class="db-skill-chip"><span>{{ skill }}</span></span>{% endfor %}</div>
-                  <div class="db-insight-box"><i class="bi bi-stars text-warning"></i> <strong>AI Insight:</strong> {{ c.insight }}</div>
-                </div>
-
-                <div class="db-tab-panel" data-tab-panel="breakdown" data-tab-panel-group="cand-{{ c.id }}">
-                  <div class="row text-center mb-3">
-                    <div class="col-4">
-                      <div class="db-score-ring">{{ c.score }}%</div>
-                      <div class="small text-muted">Overall Match</div>
-                    </div>
-                    <div class="col-8 text-start">
-                      <div class="mb-2"><div class="d-flex justify-content-between small mb-1"><span>Skills Match</span><span>{{ c.skills_score }}%</span></div><div class="db-score-bar-bg"><div class="db-score-bar-fill" style="width:{{ c.skills_score }}%;"></div></div></div>
-                      <div><div class="d-flex justify-content-between small mb-1"><span>Experience Relevance</span><span>{{ c.exp_score }}%</span></div><div class="db-score-bar-bg"><div class="db-score-bar-fill" style="width:{{ c.exp_score }}%;"></div></div></div>
-                    </div>
-                  </div>
-                  <div class="db-insight-box">Scored automatically by the AI CV screening agent against this role's required and bonus skills.</div>
-                </div>
-              </div>
-            </div>
-            {% empty %}
-            <div class="db-card-body text-muted small">Select a candidate to view details.</div>
-            {% endfor %}
+          <div class="db-card" data-cv-candidate-detail>
+            <div class="db-card-body text-muted small">Select a candidate or upload a CV to view scorecards.</div>
           </div>
         </div>
       </div>
@@ -576,9 +579,66 @@
 </div>
 
 {% include "partials/profile_wizard.html" %}
+
+<div class="cv-modal-backdrop d-none" data-score-cv-backdrop aria-hidden="true">
+  <div class="cv-modal" role="dialog" aria-modal="true" aria-labelledby="scoreCvModalTitle">
+    <button type="button" class="profile-wizard-close" data-score-cv-close aria-label="Close">&times;</button>
+    <h2 class="h5 fw-bold mb-1" id="scoreCvModalTitle"><i class="bi bi-file-earmark-check text-warning me-1"></i> Upload &amp; Score CV</h2>
+    <p class="small text-muted mb-3">Evaluate a candidate's resume against your configured job CV scoring metrics with Groq AI.</p>
+    <div class="alert alert-danger py-2 px-3 small d-none" data-score-cv-error role="alert"></div>
+    <form data-score-cv-form>
+      <div class="mb-2">
+        <label class="form-label small fw-semibold" for="scv_job">Job Posting *</label>
+        <select class="db-select w-100" id="scv_job" name="job_id" required></select>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="scv_name">Candidate Name <span class="text-muted fw-normal">(optional)</span></label>
+          <input type="text" class="db-input w-100" id="scv_name" name="full_name" placeholder="Auto-extracted if blank">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="scv_email">Candidate Email <span class="text-muted fw-normal">(optional)</span></label>
+          <input type="email" class="db-input w-100" id="scv_email" name="email" placeholder="Auto-extracted if in CV">
+        </div>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="scv_phone">Phone <span class="text-muted fw-normal">(optional)</span></label>
+          <input type="text" class="db-input w-100" id="scv_phone" name="phone" placeholder="+92 300 0000000">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="scv_city">City / Location <span class="text-muted fw-normal">(optional)</span></label>
+          <input type="text" class="db-input w-100" id="scv_city" name="location" placeholder="Lahore">
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small fw-semibold" for="scv_file">Upload Resume (PDF, DOCX, or TXT)</label>
+        <input type="file" class="form-control db-input" id="scv_file" name="resume_file" accept=".pdf,.docx,.txt">
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold" for="scv_text">Or Paste Resume Text</label>
+        <textarea class="db-input w-100" id="scv_text" name="resume_text" rows="5" placeholder="Paste full CV content here if not uploading a file..."></textarea>
+      </div>
+      <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn-db-secondary" data-score-cv-close>Cancel</button>
+        <button type="submit" class="btn-db-primary" data-score-cv-submit><i class="bi bi-stars"></i> Score CV</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+{{ jobs|json_script:"cv-jobs-data" }}
+{{ candidates|json_script:"cv-candidates-data" }}
+<script>
+  window.AUTOHR_CV = {
+    scoreUrl: "{% url 'score_cv_api' %}",
+    metricsUrlTemplate: "{% url 'update_job_cv_metrics' job_id='00000000-0000-0000-0000-000000000001' %}",
+    decisionUrlTemplate: "{% url 'application_decision_api' application_id='00000000-0000-0000-0000-000000000001' %}",
+    idPlaceholder: "00000000-0000-0000-0000-000000000001"
+  };
+</script>
 <script
   id="dashboard-draft-config"
   type="application/json"
@@ -600,6 +660,7 @@
 <script src="{% static_v 'js/profile_wizard.js' %}"></script>
 <script src="{% static_v 'js/account_profile.js' %}"></script>
 <script src="{% static_v 'js/create_job.js' %}"></script>
+<script src="{% static_v 'js/cv_scoring.js' %}"></script>
 <script>
   // Resolve the chart bars' final height (computed server-side via widthratio)
   // after dashboard.js wires up the panel-activation animation.

@@ -178,23 +178,38 @@ def _user_prompt(facts: dict) -> str:
     return "\n\n".join(s for s in sections if s.strip())
 
 
-def call_groq_chat(system: str, user: str) -> str:
+def groq_model_name() -> str:
+    return os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
+
+
+def call_groq_chat(
+    system: str,
+    user: str,
+    *,
+    temperature: float = 0.55,
+    max_tokens: int = 4096,
+    json_mode: bool = False,
+) -> str:
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
-    model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
+    model = groq_model_name()
     if not api_key:
         raise RuntimeError("GROQ_API_KEY is not set in the repo-root .env file")
 
+    kwargs = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+
     try:
         client = Groq(api_key=api_key)
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=0.55,
-            max_tokens=4096,
-        )
+        response = client.chat.completions.create(**kwargs)
     except Exception as exc:
         msg = str(exc)
         if "invalid_api_key" in msg.lower() or "401" in msg:
@@ -247,7 +262,7 @@ def generate_job_description_text(job) -> tuple[str, dict]:
     text = normalize_job_description_output(call_groq_chat(system, user))
     meta = {
         "generated_at": timezone.now().isoformat(),
-        "model": os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant"),
+        "model": groq_model_name(),
         "facts": facts,
     }
     return text, meta

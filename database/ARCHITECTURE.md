@@ -139,7 +139,7 @@ Relations: belongs to one company. Creates jobs through `job_postings.created_by
 
 ### `job_postings`
 
-Step 1 intake: everything HR enters on **Create Job** (sections A, B, C, D, G), plus workflow fields for AI JD and approval.
+Step 1 intake: everything HR enters on **Create Job** (sections A, B, C, D, F, G), plus workflow fields for AI JD and approval.
 
 | Column | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -184,6 +184,11 @@ Step 1 intake: everything HR enters on **Create Job** (sections A, B, C, D, G), 
 | `other_benefits` | TEXT | | | |
 | `relocation_assistance` | BOOLEAN | yes | `false` | |
 | `equipment_provided` | BOOLEAN | yes | `false` | |
+| **F — CV scoring metrics** | | | | |
+| `cv_skill_weight` | INT | yes | `50` | Percentage weight for skills match (`0–100`) |
+| `cv_experience_weight` | INT | yes | `30` | Percentage weight for experience match (`0–100`) |
+| `cv_education_weight` | INT | yes | `20` | Percentage weight for education match (`0–100`; weights sum to `100`) |
+| `cv_min_passing_score` | INT | yes | `60` | Minimum weighted score cutoff (`0–100`) |
 | **G — Shortlist / tone** | | | | |
 | `job_post_tone` | VARCHAR(60) | yes | | |
 | `custom_tone_instructions` | TEXT | | | When tone is `custom` |

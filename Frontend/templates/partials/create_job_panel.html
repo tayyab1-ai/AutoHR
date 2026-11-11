@@ -258,6 +258,48 @@
             </div>
           </section>
 
+          <section class="db-form-section" data-cv-metrics-section>
+            <h3 class="db-section-heading">
+              <i class="bi bi-speedometer2"></i> F. CV scoring metrics
+              <span class="ms-auto db-badge db-badge-live" data-cv-weight-total>Total: 100%</span>
+            </h3>
+            <p class="small text-muted mb-3">Set how AutoHR weights each criterion out of 100% and the minimum score required to pass CV screening.</p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <button type="button" class="btn-db-secondary btn-sm" data-cv-preset="50,30,20,60">Balanced (50/30/20)</button>
+              <button type="button" class="btn-db-secondary btn-sm" data-cv-preset="60,25,15,65">Skill-Heavy (60/25/15)</button>
+              <button type="button" class="btn-db-secondary btn-sm" data-cv-preset="40,45,15,65">Senior Exp (40/45/15)</button>
+              <button type="button" class="btn-db-secondary btn-sm" data-cv-preset="45,20,35,55">Fresh Grad (45/20/35)</button>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_cv_skill_weight"><span>Skills Weight (%)</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Percentage contribution of skills, tools, frameworks, and technical match.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.cv_skill_weight }}
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_cv_experience_weight"><span>Experience Weight (%)</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Percentage contribution of years and relevance of prior roles.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.cv_experience_weight }}
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="db-field">
+                  <label class="db-field-label" for="id_cv_education_weight"><span>Education Weight (%)</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Percentage contribution of degree level and academic fit.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.cv_education_weight }}
+                </div>
+              </div>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="db-field mb-0">
+                  <label class="db-field-label" for="id_cv_min_passing_score"><span>Minimum Passing CV Score (%)</span><button type="button" class="info-tip" data-bs-toggle="tooltip" title="Minimum weighted score (0–100) eligible for CV shortlisting.">i</button><span class="db-required">Required</span></label>
+                  {{ job_form.cv_min_passing_score }}
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section class="db-form-section">
             <h3 class="db-section-heading"><i class="bi bi-sliders"></i> G. Shortlisting and writing style</h3>
             <div class="row g-3">
@@ -319,6 +361,8 @@
               <div class="pv-row"><dt>Salary</dt><dd data-preview-salary>—</dd></div>
               <div class="pv-row"><dt>Skills</dt><dd data-preview-skills>—</dd></div>
               <div class="pv-row"><dt>Tone</dt><dd data-preview-tone>—</dd></div>
+              <div class="pv-row"><dt>CV weights (S/E/Ed)</dt><dd data-preview-cv-weights>50% / 30% / 20%</dd></div>
+              <div class="pv-row"><dt>CV pass cutoff</dt><dd data-preview-cv-cutoff>60%</dd></div>
               <div class="pv-row"><dt>Shortlist (CV → interview)</dt><dd data-preview-shortlist-cv>25</dd></div>
               <div class="pv-row"><dt>Shortlist (after interview)</dt><dd data-preview-shortlist-iv>10</dd></div>
             </dl>

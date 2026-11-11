@@ -72,6 +72,30 @@ class JobIntakeForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         label="Custom tone instructions",
     )
+    cv_skill_weight = forms.IntegerField(
+        min_value=0,
+        max_value=100,
+        initial=50,
+        label="Skills Match Weight (%)",
+    )
+    cv_experience_weight = forms.IntegerField(
+        min_value=0,
+        max_value=100,
+        initial=30,
+        label="Experience Match Weight (%)",
+    )
+    cv_education_weight = forms.IntegerField(
+        min_value=0,
+        max_value=100,
+        initial=20,
+        label="Education Match Weight (%)",
+    )
+    cv_min_passing_score = forms.IntegerField(
+        min_value=0,
+        max_value=100,
+        initial=60,
+        label="Minimum Passing CV Score (%)",
+    )
     shortlist_after_cv_count = forms.IntegerField(min_value=20, max_value=30, initial=25, label="Number of Candidates to Shortlist for Interview")
     shortlist_after_interview_count = forms.IntegerField(
         min_value=1,
@@ -137,6 +161,16 @@ class JobIntakeForm(forms.Form):
         custom = (cleaned.get("custom_tone_instructions") or "").strip()
         if tone == "custom" and not custom:
             self.add_error("custom_tone_instructions", "Describe the custom writing style you want.")
+
+        w_skill = cleaned.get("cv_skill_weight")
+        w_exp = cleaned.get("cv_experience_weight")
+        w_edu = cleaned.get("cv_education_weight")
+        if w_skill is not None and w_exp is not None and w_edu is not None:
+            if w_skill + w_exp + w_edu != 100:
+                self.add_error(
+                    "cv_skill_weight",
+                    f"CV scoring weights must total 100% (currently {w_skill + w_exp + w_edu}%).",
+                )
 
         key_items = [v.strip() for v in self.data.getlist("key_responsibilities") if v.strip()]
         if not key_items:

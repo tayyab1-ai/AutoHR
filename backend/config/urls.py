@@ -1,6 +1,8 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path
 
-from portal import account_views, form_views, google_auth_views, profile_views, views
+from portal import account_views, cv_views, form_views, google_auth_views, profile_views, views
 
 urlpatterns = [
     path("", views.landing, name="landing"),
@@ -65,4 +67,18 @@ urlpatterns = [
     ),
     path("dashboard/jobs/<uuid:job_id>/delete/", views.delete_job_draft, name="delete_job_draft"),
     path("dashboard/jobs/<uuid:job_id>/draft/", views.get_job_draft, name="get_job_draft"),
+    path(
+        "dashboard/jobs/<uuid:job_id>/cv-metrics/",
+        cv_views.update_job_cv_metrics_api,
+        name="update_job_cv_metrics",
+    ),
+    path("dashboard/applications/score-cv/", cv_views.score_cv_api, name="score_cv_api"),
+    path(
+        "dashboard/applications/<uuid:application_id>/decision/",
+        cv_views.application_decision_api,
+        name="application_decision_api",
+    ),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

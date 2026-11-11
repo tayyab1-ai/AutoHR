@@ -228,6 +228,12 @@ CREATE TABLE job_postings (
     relocation_assistance BOOLEAN NOT NULL DEFAULT FALSE,
     equipment_provided BOOLEAN NOT NULL DEFAULT FALSE,
 
+    -- F. CV scoring metrics (weights must sum to 100%)
+    cv_skill_weight INT NOT NULL DEFAULT 50,
+    cv_experience_weight INT NOT NULL DEFAULT 30,
+    cv_education_weight INT NOT NULL DEFAULT 20,
+    cv_min_passing_score INT NOT NULL DEFAULT 60,
+
     -- G. Shortlisting and writing style
     job_post_tone VARCHAR(60) NOT NULL,
     custom_tone_instructions TEXT,
@@ -254,7 +260,9 @@ CREATE TABLE job_postings (
     CONSTRAINT ck_job_target_hires CHECK (target_hires > 0),
     CONSTRAINT ck_job_deadline CHECK (application_deadline >= posting_date),
     CONSTRAINT ck_shortlist_cv CHECK (shortlist_after_cv_count BETWEEN 20 AND 30),
-    CONSTRAINT ck_shortlist_interview CHECK (shortlist_after_interview_count >= 1)
+    CONSTRAINT ck_shortlist_interview CHECK (shortlist_after_interview_count >= 1),
+    CONSTRAINT ck_job_cv_weights_sum CHECK (cv_skill_weight >= 0 AND cv_experience_weight >= 0 AND cv_education_weight >= 0 AND cv_skill_weight + cv_experience_weight + cv_education_weight = 100),
+    CONSTRAINT ck_job_cv_min_passing CHECK (cv_min_passing_score BETWEEN 0 AND 100)
 );
 
 CREATE TABLE job_responsibilities (
