@@ -173,14 +173,21 @@
               <div>
                 <div class="d-flex align-items-center justify-content-between mb-2">
                   <span class="badge bg-primary-subtle text-primary" id="current-stage-title">Stage 1: Screening &amp; Background</span>
-                  <span class="small text-white-50" id="question-progress-label">Question 1 of 5</span>
+                  <span class="small text-white-50" id="question-progress-label">Question 1 of 2</span>
                 </div>
                 <h4 class="fw-semibold text-light mb-3" id="current-question-text">
-                  "Please introduce yourself and explain what motivated you to apply for the {{ job.title }} position at {{ company.name }}."
+                  Loading tailored question...
                 </h4>
                 <div class="small text-white-50 mb-3" id="question-guidance-text">
-                  Focus on your background, core technical skills, and key projects that relate directly to this role.
+                  Please formulate your verbal answer clearly and focus on specific experiences.
                 </div>
+                <!-- Live transcript preview / editable box -->
+                <div class="mb-2 d-none" id="transcript-box">
+                  <label class="form-label small text-info mb-1"><i class="bi bi-mic me-1"></i> Live Transcription / Answer:</label>
+                  <textarea class="form-control form-control-sm bg-dark text-light border-secondary" id="answer-transcript-input" rows="3" placeholder="Speak your answer or type here..."></textarea>
+                </div>
+                <!-- Scoring feedback toast -->
+                <div class="alert alert-dark border-secondary py-2 px-3 small d-none" id="ai-feedback-alert"></div>
               </div>
 
               <!-- Audio waveform and timer -->
@@ -257,6 +264,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+  var magicToken = "{{ magic_token }}";
   var videoElem = document.getElementById("candidate-camera");
   var placeholder = document.getElementById("camera-placeholder");
   var liveBadge = document.getElementById("live-rec-badge");
@@ -265,40 +273,146 @@ document.addEventListener("DOMContentLoaded", function () {
   var btnRepeat = document.getElementById("btn-repeat-question");
   var timerElem = document.getElementById("recording-timer");
   var aiAvatar = document.getElementById("ai-avatar");
+  var transcriptBox = document.getElementById("transcript-box");
+  var transcriptInput = document.getElementById("answer-transcript-input");
+  var feedbackAlert = document.getElementById("ai-feedback-alert");
 
+  var currentStream = null;
+  var mediaRecorder = null;
+  var recordedChunks = [];
   var isRecording = false;
   var timerInterval = null;
   var secondsElapsed = 0;
+  var recognition = null;
 
-  // Initialize camera and mic
+  var currentStageOrder = 1;
+  var currentQuestions = [];
+  var currentQuestionIdx = 0;
+
+  // Camera and Microphone Initialization
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(function (stream) {
+        currentStream = stream;
         if (videoElem) {
           videoElem.srcObject = stream;
           if (placeholder) placeholder.classList.add("d-none");
         }
       })
       .catch(function (err) {
-        console.warn("Media device error:", err);
+        console.warn("Media device warning:", err);
         if (placeholder) {
           placeholder.innerHTML = '<i class="bi bi-exclamation-triangle text-warning fs-1 mb-2 d-block"></i>' +
-            '<div class="fw-semibold text-light">Camera/Microphone Permission Denied or Not Detected</div>' +
-            '<div class="small text-white-50">You can still proceed with text / audio answers.</div>';
+            '<div class="fw-semibold text-light">Webcam/Microphone Permission Not Granted</div>' +
+            '<div class="small text-white-50">You can type or speak into your microphone fallback.</div>';
         }
       });
   }
 
-  // Answer recording simulation
+  // Speech Recognition fallback initialization
+  var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRec) {
+    recognition = new SpeechRec();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognition.onresult = function (event) {
+      var transcript = "";
+      for (var i = event.resultIndex; i < event.results.length; ++i) {
+        transcript += event.results[i][0].transcript;
+      }
+      if (transcriptInput && transcript) {
+        transcriptInput.value = (transcriptInput.value + " " + transcript).trim();
+      }
+    };
+  }
+
+  function updateStageBadges(activeOrder) {
+    for (var i = 1; i <= 3; i++) {
+      var b = document.getElementById("badge-stage-" + i);
+      if (!b) continue;
+      if (i < activeOrder) {
+        b.className = "stage-badge done";
+      } else if (i === activeOrder) {
+        b.className = "stage-badge active";
+      } else {
+        b.className = "stage-badge idle";
+      }
+    }
+  }
+
+  function loadStage(stageOrder) {
+    currentStageOrder = stageOrder;
+    updateStageBadges(stageOrder);
+
+    document.getElementById("current-stage-title").textContent =
+      "Stage " + stageOrder + ": " + (stageOrder === 1 ? "Screening & Fit" : (stageOrder === 2 ? "Technical Depth" : "Behavioral & Leadership"));
+    document.getElementById("current-question-text").textContent = "Loading questions...";
+
+    fetch("/interview/" + magicToken + "/stage/" + stageOrder + "/questions/")
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok || !res.questions || !res.questions.length) {
+          document.getElementById("current-question-text").textContent = "No questions found for this stage.";
+          return;
+        }
+        currentQuestions = res.questions;
+        currentQuestionIdx = 0;
+        showQuestion(currentQuestionIdx);
+      })
+      .catch(function () {
+        document.getElementById("current-question-text").textContent = "Failed to load questions. Please check network connection.";
+      });
+  }
+
+  function showQuestion(idx) {
+    var q = currentQuestions[idx];
+    if (!q) return;
+
+    document.getElementById("question-progress-label").textContent =
+      "Question " + (idx + 1) + " of " + currentQuestions.length;
+    document.getElementById("current-question-text").textContent = '"' + q.question_text + '"';
+
+    if (transcriptInput) transcriptInput.value = "";
+    if (transcriptBox) transcriptBox.classList.remove("d-none");
+    if (feedbackAlert) feedbackAlert.classList.add("d-none");
+
+    // Reset controls
+    btnRecord.classList.remove("d-none", "btn-warning");
+    btnRecord.classList.add("btn-danger");
+    btnRecord.innerHTML = '<i class="bi bi-record-circle me-1"></i> Start Answering';
+    btnRecord.disabled = false;
+    btnNext.classList.add("d-none");
+    if (timerElem) timerElem.textContent = "00:00";
+  }
+
+  // Answer recording handler
   if (btnRecord) {
     btnRecord.addEventListener("click", function () {
       if (!isRecording) {
         // Start recording
         isRecording = true;
+        recordedChunks = [];
         btnRecord.classList.remove("btn-danger");
         btnRecord.classList.add("btn-warning");
         btnRecord.innerHTML = '<i class="bi bi-stop-circle me-1"></i> Stop Recording';
         if (liveBadge) liveBadge.classList.remove("d-none");
+
+        if (currentStream && window.MediaRecorder) {
+          try {
+            mediaRecorder = new MediaRecorder(currentStream, { mimeType: "audio/webm" });
+            mediaRecorder.ondataavailable = function (e) {
+              if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+            mediaRecorder.start(250);
+          } catch (e) {
+            console.warn("MediaRecorder start failed, audio streaming fallback:", e);
+          }
+        }
+
+        if (recognition) {
+          try { recognition.start(); } catch (e) {}
+        }
 
         secondsElapsed = 0;
         timerInterval = setInterval(function () {
@@ -314,82 +428,108 @@ document.addEventListener("DOMContentLoaded", function () {
         btnRecord.classList.add("d-none");
         if (btnNext) btnNext.classList.remove("d-none");
         if (liveBadge) liveBadge.classList.add("d-none");
+
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
+        if (recognition) {
+          try { recognition.stop(); } catch (e) {}
+        }
       }
     });
   }
 
-  // Next question
-  var currentQuestionIdx = 1;
-  var questions = [
-    {
-      stage: "Stage 1: Screening & Background",
-      num: "Question 1 of 5",
-      text: "Please introduce yourself and explain what motivated you to apply for the {{ job.title }} position at {{ company.name }}.",
-      guide: "Focus on your background, core technical skills, and key projects that relate directly to this role."
-    },
-    {
-      stage: "Stage 1: Screening & Background",
-      num: "Question 2 of 5",
-      text: "Can you describe your most significant professional project and the specific architecture or technologies you chose?",
-      guide: "Mention the technical challenges, tradeoffs, and measurable outcomes."
-    },
-    {
-      stage: "Stage 2: Technical Depth",
-      num: "Question 3 of 5",
-      text: "How do you design and optimize database queries and backend services to handle high traffic and low latency?",
-      guide: "Discuss indexing, connection pooling, caching strategies, and concurrency patterns."
-    },
-    {
-      stage: "Stage 2: Technical Depth",
-      num: "Question 4 of 5",
-      text: "Walk us through an incident where a production bug occurred. How did you identify the root cause and remediate it?",
-      guide: "Detail debugging tools, telemetry, incident communication, and preventative measures."
-    },
-    {
-      stage: "Stage 3: Behavioral & Culture",
-      num: "Question 5 of 5",
-      text: "Describe a scenario where you disagreed with a colleague or technical lead. How did you resolve the conflict constructively?",
-      guide: "Focus on collaboration, objective data, active listening, and business alignment."
-    }
-  ];
-
+  // Submit answer & advance
   if (btnNext) {
     btnNext.addEventListener("click", function () {
-      currentQuestionIdx++;
-      if (currentQuestionIdx <= questions.length) {
-        var q = questions[currentQuestionIdx - 1];
-        document.getElementById("current-stage-title").textContent = q.stage;
-        document.getElementById("question-progress-label").textContent = q.num;
-        document.getElementById("current-question-text").textContent = '"' + q.text + '"';
-        document.getElementById("question-guidance-text").textContent = q.guide;
+      var currentQ = currentQuestions[currentQuestionIdx];
+      if (!currentQ) return;
 
-        // Stage badge updates
-        if (currentQuestionIdx >= 3 && currentQuestionIdx <= 4) {
-          document.getElementById("badge-stage-1").className = "stage-badge done";
-          document.getElementById("badge-stage-2").className = "stage-badge active";
-        } else if (currentQuestionIdx === 5) {
-          document.getElementById("badge-stage-2").className = "stage-badge done";
-          document.getElementById("badge-stage-3").className = "stage-badge active";
+      var fd = new FormData();
+      var answerText = transcriptInput ? transcriptInput.value.trim() : "";
+      fd.append("answer_text", answerText);
+      fd.append("duration_seconds", String(secondsElapsed));
+
+      if (recordedChunks.length > 0) {
+        var audioBlob = new Blob(recordedChunks, { type: "audio/webm" });
+        fd.append("audio", audioBlob, "answer.webm");
+      }
+
+      btnNext.disabled = true;
+      btnNext.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Evaluating Response...';
+
+      fetch("/interview/" + magicToken + "/question/" + currentQ.id + "/answer/", {
+        method: "POST",
+        body: fd
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        btnNext.disabled = false;
+        btnNext.innerHTML = 'Submit &amp; Next Question <i class="bi bi-arrow-right ms-1"></i>';
+
+        if (res.ok && res.question && res.question.scores) {
+          var sc = res.question.scores;
+          feedbackAlert.innerHTML =
+            '<strong>AI Feedback:</strong> Comm: ' + sc.communication + '/10 &middot; Tech: ' + sc.technical + '/10 &middot; Problem-Solving: ' + sc.problem_solving + '/10<br>' +
+            '<span class="text-white-50 small">' + (res.question.ai_rationale || "") + '</span>';
+          feedbackAlert.classList.remove("d-none");
         }
 
-        // Reset buttons
-        btnNext.classList.add("d-none");
-        btnRecord.classList.remove("d-none", "btn-warning");
-        btnRecord.classList.add("btn-danger");
-        btnRecord.innerHTML = '<i class="bi bi-record-circle me-1"></i> Start Answering';
-        if (timerElem) timerElem.textContent = "00:00";
-      } else {
-        // Completed
-        document.getElementById("badge-stage-3").className = "stage-badge done";
+        setTimeout(function () {
+          currentQuestionIdx++;
+          if (currentQuestionIdx < currentQuestions.length) {
+            showQuestion(currentQuestionIdx);
+          } else {
+            // Stage completed! Complete stage
+            completeCurrentStage();
+          }
+        }, 1200);
+      })
+      .catch(function () {
+        btnNext.disabled = false;
+        btnNext.innerHTML = 'Submit &amp; Next Question <i class="bi bi-arrow-right ms-1"></i>';
+        // Advance anyway on network hiccup
+        currentQuestionIdx++;
+        if (currentQuestionIdx < currentQuestions.length) {
+          showQuestion(currentQuestionIdx);
+        } else {
+          completeCurrentStage();
+        }
+      });
+    });
+  }
+
+  function completeCurrentStage() {
+    fetch("/interview/" + magicToken + "/stage/" + currentStageOrder + "/complete/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      if (res.interview_completed) {
+        // Complete interview view
+        for (var i = 1; i <= 3; i++) {
+          var b = document.getElementById("badge-stage-" + i);
+          if (b) b.className = "stage-badge done";
+        }
         document.querySelector(".question-card").innerHTML =
           '<div class="text-center py-5">' +
           '<div class="mb-3"><i class="bi bi-check-circle-fill text-success fs-1"></i></div>' +
-          '<h3 class="fw-bold text-light mb-2">Interview Completed!</h3>' +
-          '<p class="text-white-50">Your responses have been recorded and sent to the AutoHR AI Evaluation pipeline. The hiring team at {{ company.name }} will review your profile shortly.</p>' +
+          '<h3 class="fw-bold text-light mb-2">AI Interview Completed!</h3>' +
+          '<p class="text-white-50 mb-3">All 3 stages (Screening, Technical, Behavioral) have been completed and evaluated.</p>' +
+          '<div class="badge bg-primary-subtle text-primary fs-6 px-3 py-2 mb-3">Overall Composite Score: ' + (res.composite_interview_score || 0) + '%</div>' +
+          '<p class="small text-muted">The hiring team at {{ company.name }} will review your full scorecard and final ranking on the dashboard.</p>' +
           '</div>';
         btnRecord.classList.add("d-none");
         btnNext.classList.add("d-none");
         btnRepeat.classList.add("d-none");
+      } else if (res.next_stage) {
+        loadStage(res.next_stage.sequence_order);
+      }
+    })
+    .catch(function () {
+      if (currentStageOrder < 3) {
+        loadStage(currentStageOrder + 1);
       }
     });
   }
@@ -411,6 +551,9 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  // Initial stage load
+  loadStage(1);
 });
 </script>
 {% endblock %}

@@ -4,6 +4,7 @@
 from django.utils.html import escape
 
 from .cv_scoring_service import applications_for_company
+from .models import InterviewSchedule
 
 
 def build_hr_profile(db_user, company) -> dict:
@@ -97,7 +98,15 @@ def workspace_shell_for_company(company, *, jobs: list[dict]) -> dict:
     candidates = applications_for_company(company)
     total_apps = len(candidates)
     shortlisted = [c for c in candidates if c["status"] == "shortlisted"]
-    interviewing = [c for c in candidates if c["status"] == "interviewing"]
+    interview_statuses = {
+        "interviewing",
+        "interview_invited",
+        "interview_scheduled",
+        "interview_in_progress",
+        "interview_completed",
+        "final_review",
+    }
+    interviewing = [c for c in candidates if c["status"] in interview_statuses]
     rejected = [c for c in candidates if c["status"] == "rejected"]
     screened = [c for c in candidates if c["status"] == "screened"]
 
@@ -216,6 +225,43 @@ def workspace_shell_for_company(company, *, jobs: list[dict]) -> dict:
                 "meta": f"{badge} · {c['applied']}",
             }
         )
+
+    # Real scheduled interviews from DB
+    interviews_qs = (
+        InterviewSchedule.objects.filter(application__job_posting__company=company)
+        .select_related("application__candidate", "application__job_posting")
+        .order_by("-scheduled_start")[:25]
+    )
+    interview_rows = []
+    for s in interviews_qs:
+        candidate_name = s.application.candidate.full_name
+        role = s.application.job_posting.title
+        iv = s.interviews.first()
+        status_label = "Scheduled"
+        if iv:
+            if iv.status == "completed":
+                status_label = "Completed"
+            elif iv.status == "in_progress":
+                status_label = "In Progress"
+
+        stage_name = "Stage 1: Screening"
+        if iv:
+            st = iv.stages.filter(status__in=["in_progress", "completed"]).order_by("-sequence_order").first()
+            if st:
+                stage_name = f"Stage {st.sequence_order}: {st.stage_type.title()}"
+
+        interview_rows.append(
+            {
+                "candidate": candidate_name,
+                "role": role,
+                "stage": stage_name,
+                "date": s.scheduled_start.strftime("%d %b %Y"),
+                "time": s.scheduled_start.strftime("%I:%M %p"),
+                "status": "completed" if status_label == "Completed" else "scheduled",
+            }
+        )
+    shell["interviews"] = interview_rows
+
     shell["activity"] = activity
     shell["candidates"] = candidates
     return shell

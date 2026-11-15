@@ -118,6 +118,31 @@ urlpatterns = [
         interview_views.candidate_interview_room_view,
         name="candidate_interview_room",
     ),
+    path(
+        "interview/<str:magic_token>/stage/<int:sequence_order>/questions/",
+        interview_views.candidate_stage_questions_api,
+        name="candidate_stage_questions_api",
+    ),
+    path(
+        "interview/<str:magic_token>/question/<uuid:question_id>/answer/",
+        interview_views.candidate_submit_answer_api,
+        name="candidate_submit_answer_api",
+    ),
+    path(
+        "interview/<str:magic_token>/stage/<int:sequence_order>/complete/",
+        interview_views.candidate_complete_stage_api,
+        name="candidate_complete_stage_api",
+    ),
+    path(
+        "dashboard/jobs/<uuid:job_id>/leaderboard/",
+        interview_views.job_leaderboard_api,
+        name="job_leaderboard_api",
+    ),
+    path(
+        "dashboard/rankings/<uuid:ranking_id>/override/",
+        interview_views.hr_override_ranking_api,
+        name="hr_override_ranking_api",
+    ),
 ]
 
 if settings.DEBUG:

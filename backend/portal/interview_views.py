@@ -13,6 +13,11 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .decorators import hr_login_required
+from .interview_execution_service import (
+    complete_stage_and_progress,
+    evaluate_question_answer,
+    get_or_generate_stage_questions,
+)
 from .interview_invitation_service import (
     bulk_invite_shortlisted,
     complete_consent_and_initialize_interview,
@@ -22,10 +27,13 @@ from .interview_invitation_service import (
 )
 from .models import (
     Application,
+    CandidateFinalRanking,
     CandidateInvitation,
     Interview,
     InterviewConsent,
+    InterviewQuestionAnswer,
     InterviewSchedule,
+    InterviewStage,
     JobPosting,
 )
 from .services import get_job_for_company
@@ -301,4 +309,214 @@ def candidate_interview_room_view(request, magic_token: str):
         "magic_token": magic_token,
     }
     return render(request, "interview/candidate_interview_room.html", context)
+
+
+@require_GET
+def candidate_stage_questions_api(request, magic_token: str, sequence_order: int):
+    """Retrieve or generate dynamic questions for an interview stage."""
+    invitation = CandidateInvitation.objects.filter(magic_token=magic_token).first()
+    if not invitation or invitation.is_expired():
+        return JsonResponse({"ok": False, "error": "Invalid or expired session."}, status=403)
+
+    interview = (
+        Interview.objects.filter(application=invitation.application)
+        .order_by("-created_at")
+        .first()
+    )
+    if not interview:
+        return JsonResponse({"ok": False, "error": "Interview session not initialized."}, status=404)
+
+    stage = InterviewStage.objects.filter(interview=interview, sequence_order=sequence_order).first()
+    if not stage:
+        return JsonResponse({"ok": False, "error": f"Stage {sequence_order} not found."}, status=404)
+
+    if stage.status == "not_started":
+        stage.status = "in_progress"
+        stage.started_at = timezone.now()
+        stage.save(update_fields=["status", "started_at"])
+
+    questions = get_or_generate_stage_questions(stage)
+    return JsonResponse(
+        {
+            "ok": True,
+            "stage": {
+                "sequence_order": stage.sequence_order,
+                "stage_type": stage.stage_type,
+                "status": stage.status,
+            },
+            "questions": [
+                {
+                    "id": str(q.id),
+                    "question_number": q.question_number,
+                    "question_text": q.question_text,
+                    "answered": bool(q.transcript_text),
+                    "communication_score": float(q.communication_score) if q.communication_score is not None else None,
+                    "technical_score": float(q.technical_score) if q.technical_score is not None else None,
+                    "problem_solving_score": float(q.problem_solving_score) if q.problem_solving_score is not None else None,
+                    "ai_rationale": q.ai_rationale or "",
+                }
+                for q in questions
+            ],
+        }
+    )
+
+
+@require_POST
+def candidate_submit_answer_api(request, magic_token: str, question_id):
+    """Submit candidate's answer (audio file or transcript) and evaluate with 5-factor AI rubric."""
+    invitation = CandidateInvitation.objects.filter(magic_token=magic_token).first()
+    if not invitation or invitation.is_expired():
+        return JsonResponse({"ok": False, "error": "Invalid or expired session."}, status=403)
+
+    qa = InterviewQuestionAnswer.objects.select_related("stage__interview__application").filter(
+        id=question_id,
+        stage__interview__application=invitation.application,
+    ).first()
+    if not qa:
+        return JsonResponse({"ok": False, "error": "Question not found."}, status=404)
+
+    # Extract answer text and duration
+    answer_text = request.POST.get("answer_text") or ""
+    duration_sec = request.POST.get("duration_seconds") or 0
+
+    if not answer_text and request.body:
+        try:
+            body_data = json.loads(request.body.decode("utf-8"))
+            answer_text = body_data.get("answer_text") or answer_text
+            duration_sec = body_data.get("duration_seconds") or duration_sec
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+    audio_file = request.FILES.get("audio")
+    audio_bytes = audio_file.read() if audio_file else None
+    audio_name = audio_file.name if audio_file else "answer.webm"
+
+    evaluated_qa = evaluate_question_answer(
+        qa,
+        answer_text=answer_text,
+        duration_seconds=int(duration_sec or 0),
+        audio_bytes=audio_bytes,
+        audio_filename=audio_name,
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": "Answer evaluated successfully.",
+            "question": {
+                "id": str(evaluated_qa.id),
+                "question_number": evaluated_qa.question_number,
+                "transcript": evaluated_qa.transcript_text,
+                "scores": {
+                    "communication": float(evaluated_qa.communication_score or 0),
+                    "confidence": float(evaluated_qa.confidence_score or 0),
+                    "technical": float(evaluated_qa.technical_score or 0),
+                    "relevance": float(evaluated_qa.relevance_score or 0),
+                    "problem_solving": float(evaluated_qa.problem_solving_score or 0),
+                },
+                "ai_rationale": evaluated_qa.ai_rationale,
+            },
+        }
+    )
+
+
+@require_POST
+def candidate_complete_stage_api(request, magic_token: str, sequence_order: int):
+    """Mark stage completed and transition to next stage or finalize interview."""
+    invitation = CandidateInvitation.objects.filter(magic_token=magic_token).first()
+    if not invitation or invitation.is_expired():
+        return JsonResponse({"ok": False, "error": "Invalid or expired session."}, status=403)
+
+    interview = (
+        Interview.objects.filter(application=invitation.application)
+        .order_by("-created_at")
+        .first()
+    )
+    if not interview:
+        return JsonResponse({"ok": False, "error": "Interview not found."}, status=404)
+
+    stage = InterviewStage.objects.filter(interview=interview, sequence_order=sequence_order).first()
+    if not stage:
+        return JsonResponse({"ok": False, "error": "Stage not found."}, status=404)
+
+    res = complete_stage_and_progress(stage)
+    return JsonResponse({"ok": True, **res})
+
+
+# ==============================================================================
+# HR Leaderboard APIs
+# ==============================================================================
+
+
+@hr_login_required
+@require_GET
+def job_leaderboard_api(request, job_id):
+    """Retrieve full candidate leaderboard with CV, Interview, and Composite rankings."""
+    company = request.user.db_user.company
+    try:
+        job = get_job_for_company(job_id, company)
+    except JobPosting.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Job not found."}, status=404)
+
+    rankings = CandidateFinalRanking.objects.filter(job_posting=job).select_related(
+        "application__candidate"
+    ).order_by("final_rank")
+
+    data = [
+        {
+            "id": str(r.id),
+            "final_rank": r.final_rank,
+            "candidate_name": r.application.candidate.full_name,
+            "candidate_email": r.application.candidate.email,
+            "cv_score": float(r.cv_score),
+            "interview_score": float(r.interview_score),
+            "composite_score": float(r.composite_score),
+            "decision_verdict": r.decision_verdict,
+            "ai_justification": r.ai_justification,
+            "hr_override_verdict": r.hr_override_verdict,
+            "hr_feedback_notes": r.hr_feedback_notes,
+            "calculated_at": r.calculated_at.isoformat(),
+        }
+        for r in rankings
+    ]
+
+    return JsonResponse({"ok": True, "job_title": job.title, "leaderboard": data})
+
+
+@hr_login_required
+@require_POST
+def hr_override_ranking_api(request, ranking_id):
+    """HR overrides AI verdict or adds human review feedback notes."""
+    company = request.user.db_user.company
+    ranking = CandidateFinalRanking.objects.select_related("job_posting").filter(
+        id=ranking_id,
+        job_posting__company=company,
+    ).first()
+    if not ranking:
+        return JsonResponse({"ok": False, "error": "Ranking record not found."}, status=404)
+
+    body = _json_body(request)
+    verdict = (body.get("override_verdict") or "").strip().lower()
+    notes = (body.get("feedback_notes") or "").strip()
+
+    valid_verdicts = {"strong_hire", "hire", "lean_hire", "no_hire", ""}
+    if verdict not in valid_verdicts:
+        return JsonResponse({"ok": False, "error": "Invalid verdict option."}, status=400)
+
+    ranking.hr_override_verdict = verdict or None
+    ranking.hr_feedback_notes = notes or None
+    ranking.save(update_fields=["hr_override_verdict", "hr_feedback_notes"])
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": "Ranking override saved successfully.",
+            "ranking": {
+                "id": str(ranking.id),
+                "hr_override_verdict": ranking.hr_override_verdict,
+                "hr_feedback_notes": ranking.hr_feedback_notes,
+            },
+        }
+    )
+
 
