@@ -224,6 +224,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function statusBadgeHtml(c) {
     if (c.status === "shortlisted") return '<span class="db-badge db-badge-shortlisted">Shortlisted</span>';
+    if (c.status === "interview_invited") return '<span class="db-badge db-badge-scheduled">Invited to Interview</span>';
+    if (c.status === "interview_scheduled") return '<span class="db-badge db-badge-interviewing">Interview Scheduled</span>';
+    if (c.status === "interview_in_progress") return '<span class="db-badge db-badge-interviewing">In Progress</span>';
+    if (c.status === "interview_completed") return '<span class="db-badge db-badge-live">Interview Completed</span>';
     if (c.status === "interviewing") return '<span class="db-badge db-badge-interviewing">Interviewing</span>';
     if (c.status === "rejected") return '<span class="db-badge db-badge-rejected">Not Progressing</span>';
     return '<span class="db-badge db-badge-scheduled">Screened</span>';
@@ -278,6 +282,11 @@ document.addEventListener("DOMContentLoaded", function () {
       ? '<a class="btn-db-secondary btn-sm text-decoration-none" href="' + escapeHtml(c.resume_file_url) + '" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text"></i> View CV</a>'
       : "";
 
+    var isShortlisted = c.status === "shortlisted" || c.status === "interview_invited" || c.status === "interview_scheduled";
+    var inviteBtn = isShortlisted
+      ? '<button type="button" class="btn btn-sm btn-primary ms-1" data-cv-invite="' + escapeHtml(c.id) + '"><i class="bi bi-calendar2-check"></i> ' + (c.status === "interview_invited" ? "Re-send Invite" : "Invite to Interview") + "</button>"
+      : "";
+
     detailWrap.innerHTML =
       '<div class="db-card-header flex-wrap gap-2">' +
       '  <div class="d-flex align-items-center gap-3">' +
@@ -290,6 +299,7 @@ document.addEventListener("DOMContentLoaded", function () {
       '  <div class="d-flex flex-wrap align-items-center gap-2">' +
       statusBadgeHtml(c) +
       resumeLink +
+      inviteBtn +
       "  </div>" +
       "</div>" +
       '<div class="db-card-body">' +
@@ -363,6 +373,39 @@ document.addEventListener("DOMContentLoaded", function () {
             candidates = res.data.candidates || candidates;
             updateOverviewKpis(res.data.kpis);
             renderCandidates();
+          });
+      });
+    });
+
+    detailWrap.querySelectorAll("[data-cv-invite]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var appId = btn.getAttribute("data-cv-invite");
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Inviting...';
+        fetch(urlFromTemplate(cfg.inviteUrlTemplate, appId, "/dashboard/applications/" + appId + "/invite/"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrf(),
+            Accept: "application/json",
+          },
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-calendar2-check"></i> Re-send Invite';
+            if (!res.ok) {
+              showToast(false, res.error || "Failed to create invitation.");
+              return;
+            }
+            c.status = "interview_invited";
+            showToast(true, res.message + " Magic Link: " + res.invitation.invitation_url);
+            renderCandidates();
+          })
+          .catch(function () {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-calendar2-check"></i> Invite to Interview';
+            showToast(false, "Network error while sending invitation.");
           });
       });
     });
@@ -510,6 +553,85 @@ document.addEventListener("DOMContentLoaded", function () {
             modalError.textContent = "Network error while scoring CV.";
             modalError.classList.remove("d-none");
           }
+        });
+    });
+  }
+
+  var syncFormBtn = document.querySelector("[data-cv-sync-form]");
+  if (syncFormBtn) {
+    syncFormBtn.addEventListener("click", function () {
+      var currentJobId = jobFilter ? jobFilter.value : "";
+      var url = currentJobId
+        ? urlFromTemplate(cfg.syncFormUrlTemplate, currentJobId, "/dashboard/jobs/" + currentJobId + "/sync-form/")
+        : (cfg.syncAllFormsUrl || "/dashboard/forms/sync-all/");
+
+      var origHtml = syncFormBtn.innerHTML;
+      syncFormBtn.disabled = true;
+      syncFormBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Syncing...';
+
+      fetch(url, {
+        method: "POST",
+        headers: { "X-CSRFToken": getCsrf(), Accept: "application/json" },
+      })
+        .then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok, data: d }; });
+        })
+        .then(function (res) {
+          syncFormBtn.disabled = false;
+          syncFormBtn.innerHTML = origHtml;
+          if (!res.ok || !res.data.ok) {
+            showToast(false, (res.data && (res.data.message || res.data.error)) || "Could not sync Google Form responses.");
+            return;
+          }
+          jobs = res.data.jobs || jobs;
+          candidates = res.data.candidates || candidates;
+          updateOverviewKpis(res.data.kpis);
+          populateJobSelects(jobFilter ? jobFilter.value : "");
+          renderCandidates();
+          showToast(true, res.data.message || "Synced Google Form responses.");
+        })
+        .catch(function () {
+          syncFormBtn.disabled = false;
+          syncFormBtn.innerHTML = origHtml;
+          showToast(false, "Network error while syncing Google Form responses.");
+        });
+    });
+  }
+
+  var bulkInviteBtn = document.querySelector("[data-cv-bulk-invite]");
+  if (bulkInviteBtn) {
+    bulkInviteBtn.addEventListener("click", function () {
+      var currentJobId = jobFilter ? jobFilter.value : "";
+      if (!currentJobId) {
+        showToast(false, "Please select a specific job from the dropdown to bulk-invite its shortlisted candidates.");
+        return;
+      }
+      var origHtml = bulkInviteBtn.innerHTML;
+      bulkInviteBtn.disabled = true;
+      bulkInviteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Inviting...';
+
+      fetch(urlFromTemplate(cfg.bulkInviteUrlTemplate, currentJobId, "/dashboard/jobs/" + currentJobId + "/invite-shortlisted/"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrf(),
+          Accept: "application/json",
+        },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          bulkInviteBtn.disabled = false;
+          bulkInviteBtn.innerHTML = origHtml;
+          if (!res.ok) {
+            showToast(false, res.error || "Failed to send bulk invitations.");
+            return;
+          }
+          showToast(true, res.message || ("Sent " + res.invited_count + " invitations."));
+        })
+        .catch(function () {
+          bulkInviteBtn.disabled = false;
+          bulkInviteBtn.innerHTML = origHtml;
+          showToast(false, "Network error during bulk invitations.");
         });
     });
   }

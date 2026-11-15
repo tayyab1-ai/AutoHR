@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+{% load asset_version %}
+{% block title %}AI Interview Room — {{ job.title }} | AutoHR{% endblock %}
+
+{% block extra_css %}
+<style>
+  body {
+    background: #090d16;
+    color: #f1f5f9;
+  }
+  .room-header {
+    background: #0f172a;
+    border-bottom: 1px solid #1e293b;
+    padding: 0.75rem 1.5rem;
+  }
+  .stage-badge {
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .stage-badge.active {
+    background: #0284c7;
+    color: #ffffff;
+  }
+  .stage-badge.done {
+    background: #059669;
+    color: #ffffff;
+  }
+  .stage-badge.idle {
+    background: #1e293b;
+    color: #94a3b8;
+  }
+  .interviewer-panel {
+    background: #131d33;
+    border: 1px solid #1e293b;
+    border-radius: 16px;
+    padding: 1.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .ai-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 25px rgba(2, 132, 199, 0.4);
+    position: relative;
+  }
+  .ai-avatar.speaking::after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid #38bdf8;
+    animation: ripple 1.5s infinite ease-out;
+  }
+  @keyframes ripple {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+  .candidate-video-wrap {
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 16 / 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .candidate-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+  .recording-indicator {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: rgba(239, 68, 68, 0.9);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    z-index: 10;
+  }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #ffffff;
+    border-radius: 50%;
+    animation: blink 1s infinite alternate;
+  }
+  @keyframes blink {
+    from { opacity: 0.3; }
+    to { opacity: 1; }
+  }
+  .question-card {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    margin-top: 1rem;
+  }
+  .audio-bar-visualizer {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 24px;
+  }
+  .audio-bar {
+    width: 4px;
+    background: #0284c7;
+    border-radius: 2px;
+    height: 6px;
+    transition: height 0.1s ease;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column min-vh-100">
+  <!-- Room Topbar -->
+  <header class="room-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="d-flex align-items-center gap-3">
+      <span class="fw-bold fs-5 text-primary">Auto<span class="text-light">HR</span></span>
+      <span class="text-white-50">|</span>
+      <span class="fw-semibold text-light">{{ job.title }}</span>
+      <span class="badge bg-secondary-subtle text-dark">{{ company.name }}</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <div class="d-flex align-items-center gap-1">
+        <span class="stage-badge active" id="badge-stage-1">1. Screening</span>
+        <span class="stage-badge idle" id="badge-stage-2">2. Technical</span>
+        <span class="stage-badge idle" id="badge-stage-3">3. Behavioral</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Room Interface -->
+  <main class="flex-grow-1 p-3 p-md-4">
+    <div class="container-fluid">
+      <div class="row g-4">
+        <!-- Left: AI Recruiter State & Current Question -->
+        <div class="col-12 col-lg-5">
+          <div class="interviewer-panel">
+            <div class="d-flex align-items-center gap-3 mb-4">
+              <div class="ai-avatar" id="ai-avatar">
+                <i class="bi bi-robot fs-2 text-white"></i>
+              </div>
+              <div>
+                <h5 class="fw-bold mb-0">AutoHR AI Interviewer</h5>
+                <span class="small text-info" id="ai-status-text">
+                  <i class="bi bi-broadcast me-1"></i> Active Session Ready
+                </span>
+              </div>
+            </div>
+
+            <!-- Current Stage and Question Display -->
+            <div class="question-card flex-grow-1 d-flex flex-column justify-content-between">
+              <div>
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="badge bg-primary-subtle text-primary" id="current-stage-title">Stage 1: Screening &amp; Background</span>
+                  <span class="small text-white-50" id="question-progress-label">Question 1 of 5</span>
+                </div>
+                <h4 class="fw-semibold text-light mb-3" id="current-question-text">
+                  "Please introduce yourself and explain what motivated you to apply for the {{ job.title }} position at {{ company.name }}."
+                </h4>
+                <div class="small text-white-50 mb-3" id="question-guidance-text">
+                  Focus on your background, core technical skills, and key projects that relate directly to this role.
+                </div>
+              </div>
+
+              <!-- Audio waveform and timer -->
+              <div class="border-top border-secondary pt-3 mt-3 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="small text-white-50">Audio Feed:</span>
+                  <div class="audio-bar-visualizer" id="audio-bars">
+                    <span class="audio-bar" style="height: 12px;"></span>
+                    <span class="audio-bar" style="height: 18px;"></span>
+                    <span class="audio-bar" style="height: 8px;"></span>
+                    <span class="audio-bar" style="height: 22px;"></span>
+                    <span class="audio-bar" style="height: 14px;"></span>
+                  </div>
+                </div>
+                <div class="fw-mono text-warning fs-5 fw-bold" id="recording-timer">00:00</div>
+              </div>
+            </div>
+
+            <!-- Question Controls -->
+            <div class="mt-4 d-flex gap-2 flex-wrap">
+              <button type="button" class="btn btn-danger flex-grow-1 py-2 fw-semibold" id="btn-record-answer">
+                <i class="bi bi-record-circle me-1"></i> Start Answering
+              </button>
+              <button type="button" class="btn btn-outline-info py-2" id="btn-repeat-question">
+                <i class="bi bi-volume-up me-1"></i> Read Out Loud
+              </button>
+              <button type="button" class="btn btn-primary flex-grow-1 py-2 fw-semibold d-none" id="btn-next-question">
+                Submit &amp; Next Question <i class="bi bi-arrow-right ms-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Candidate Camera & Mic Feed -->
+        <div class="col-12 col-lg-7">
+          <div class="d-flex flex-column gap-3">
+            <div class="candidate-video-wrap">
+              <div class="recording-indicator d-none" id="live-rec-badge">
+                <span class="pulse-dot"></span> LIVE RECORDING
+              </div>
+              <video id="candidate-camera" class="candidate-video" autoplay playsinline muted></video>
+              <div id="camera-placeholder" class="text-center p-4 text-white-50">
+                <i class="bi bi-camera-video-off fs-1 mb-2 d-block"></i>
+                <div class="fw-semibold">Requesting Camera &amp; Microphone Access...</div>
+                <div class="small">Click 'Allow' on your browser prompt to proceed.</div>
+              </div>
+            </div>
+
+            <!-- Peripheral Status Bar -->
+            <div class="d-flex align-items-center justify-content-between p-3 bg-dark rounded-4 border border-secondary">
+              <div class="d-flex align-items-center gap-3">
+                <span class="badge bg-success-subtle text-success" id="cam-status">
+                  <i class="bi bi-camera-video-fill me-1"></i> Camera Active
+                </span>
+                <span class="badge bg-success-subtle text-success" id="mic-status">
+                  <i class="bi bi-mic-fill me-1"></i> Mic Connected
+                </span>
+                <span class="badge bg-info-subtle text-info">
+                  <i class="bi bi-shield-lock-fill me-1"></i> AI Consent Verified
+                </span>
+              </div>
+              <div class="text-white-50 small">
+                Candidate: <strong class="text-light">{{ candidate.full_name }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var videoElem = document.getElementById("candidate-camera");
+  var placeholder = document.getElementById("camera-placeholder");
+  var liveBadge = document.getElementById("live-rec-badge");
+  var btnRecord = document.getElementById("btn-record-answer");
+  var btnNext = document.getElementById("btn-next-question");
+  var btnRepeat = document.getElementById("btn-repeat-question");
+  var timerElem = document.getElementById("recording-timer");
+  var aiAvatar = document.getElementById("ai-avatar");
+
+  var isRecording = false;
+  var timerInterval = null;
+  var secondsElapsed = 0;
+
+  // Initialize camera and mic
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(function (stream) {
+        if (videoElem) {
+          videoElem.srcObject = stream;
+          if (placeholder) placeholder.classList.add("d-none");
+        }
+      })
+      .catch(function (err) {
+        console.warn("Media device error:", err);
+        if (placeholder) {
+          placeholder.innerHTML = '<i class="bi bi-exclamation-triangle text-warning fs-1 mb-2 d-block"></i>' +
+            '<div class="fw-semibold text-light">Camera/Microphone Permission Denied or Not Detected</div>' +
+            '<div class="small text-white-50">You can still proceed with text / audio answers.</div>';
+        }
+      });
+  }
+
+  // Answer recording simulation
+  if (btnRecord) {
+    btnRecord.addEventListener("click", function () {
+      if (!isRecording) {
+        // Start recording
+        isRecording = true;
+        btnRecord.classList.remove("btn-danger");
+        btnRecord.classList.add("btn-warning");
+        btnRecord.innerHTML = '<i class="bi bi-stop-circle me-1"></i> Stop Recording';
+        if (liveBadge) liveBadge.classList.remove("d-none");
+
+        secondsElapsed = 0;
+        timerInterval = setInterval(function () {
+          secondsElapsed++;
+          var m = String(Math.floor(secondsElapsed / 60)).padStart(2, "0");
+          var s = String(secondsElapsed % 60).padStart(2, "0");
+          if (timerElem) timerElem.textContent = m + ":" + s;
+        }, 1000);
+      } else {
+        // Stop recording
+        isRecording = false;
+        clearInterval(timerInterval);
+        btnRecord.classList.add("d-none");
+        if (btnNext) btnNext.classList.remove("d-none");
+        if (liveBadge) liveBadge.classList.add("d-none");
+      }
+    });
+  }
+
+  // Next question
+  var currentQuestionIdx = 1;
+  var questions = [
+    {
+      stage: "Stage 1: Screening & Background",
+      num: "Question 1 of 5",
+      text: "Please introduce yourself and explain what motivated you to apply for the {{ job.title }} position at {{ company.name }}.",
+      guide: "Focus on your background, core technical skills, and key projects that relate directly to this role."
+    },
+    {
+      stage: "Stage 1: Screening & Background",
+      num: "Question 2 of 5",
+      text: "Can you describe your most significant professional project and the specific architecture or technologies you chose?",
+      guide: "Mention the technical challenges, tradeoffs, and measurable outcomes."
+    },
+    {
+      stage: "Stage 2: Technical Depth",
+      num: "Question 3 of 5",
+      text: "How do you design and optimize database queries and backend services to handle high traffic and low latency?",
+      guide: "Discuss indexing, connection pooling, caching strategies, and concurrency patterns."
+    },
+    {
+      stage: "Stage 2: Technical Depth",
+      num: "Question 4 of 5",
+      text: "Walk us through an incident where a production bug occurred. How did you identify the root cause and remediate it?",
+      guide: "Detail debugging tools, telemetry, incident communication, and preventative measures."
+    },
+    {
+      stage: "Stage 3: Behavioral & Culture",
+      num: "Question 5 of 5",
+      text: "Describe a scenario where you disagreed with a colleague or technical lead. How did you resolve the conflict constructively?",
+      guide: "Focus on collaboration, objective data, active listening, and business alignment."
+    }
+  ];
+
+  if (btnNext) {
+    btnNext.addEventListener("click", function () {
+      currentQuestionIdx++;
+      if (currentQuestionIdx <= questions.length) {
+        var q = questions[currentQuestionIdx - 1];
+        document.getElementById("current-stage-title").textContent = q.stage;
+        document.getElementById("question-progress-label").textContent = q.num;
+        document.getElementById("current-question-text").textContent = '"' + q.text + '"';
+        document.getElementById("question-guidance-text").textContent = q.guide;
+
+        // Stage badge updates
+        if (currentQuestionIdx >= 3 && currentQuestionIdx <= 4) {
+          document.getElementById("badge-stage-1").className = "stage-badge done";
+          document.getElementById("badge-stage-2").className = "stage-badge active";
+        } else if (currentQuestionIdx === 5) {
+          document.getElementById("badge-stage-2").className = "stage-badge done";
+          document.getElementById("badge-stage-3").className = "stage-badge active";
+        }
+
+        // Reset buttons
+        btnNext.classList.add("d-none");
+        btnRecord.classList.remove("d-none", "btn-warning");
+        btnRecord.classList.add("btn-danger");
+        btnRecord.innerHTML = '<i class="bi bi-record-circle me-1"></i> Start Answering';
+        if (timerElem) timerElem.textContent = "00:00";
+      } else {
+        // Completed
+        document.getElementById("badge-stage-3").className = "stage-badge done";
+        document.querySelector(".question-card").innerHTML =
+          '<div class="text-center py-5">' +
+          '<div class="mb-3"><i class="bi bi-check-circle-fill text-success fs-1"></i></div>' +
+          '<h3 class="fw-bold text-light mb-2">Interview Completed!</h3>' +
+          '<p class="text-white-50">Your responses have been recorded and sent to the AutoHR AI Evaluation pipeline. The hiring team at {{ company.name }} will review your profile shortly.</p>' +
+          '</div>';
+        btnRecord.classList.add("d-none");
+        btnNext.classList.add("d-none");
+        btnRepeat.classList.add("d-none");
+      }
+    });
+  }
+
+  // Text to speech read aloud
+  if (btnRepeat) {
+    btnRepeat.addEventListener("click", function () {
+      var text = document.getElementById("current-question-text").textContent;
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        if (aiAvatar) aiAvatar.classList.add("speaking");
+        utterance.onend = function () {
+          if (aiAvatar) aiAvatar.classList.remove("speaking");
+        };
+        window.speechSynthesis.speak(utterance);
+      }
+    });
+  }
+});
+</script>
+{% endblock %}
+

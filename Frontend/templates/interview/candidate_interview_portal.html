@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% load asset_version %}
+{% block title %}Interview Portal — {{ job.title }} | AutoHR{% endblock %}
+
+{% block extra_css %}
+<style>
+  .portal-wrap {
+    min-height: 100vh;
+    background: #f8fafc;
+    padding-bottom: 3rem;
+  }
+  .portal-navbar {
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 1rem 0;
+  }
+  .portal-header-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #ffffff;
+    border-radius: 16px;
+    padding: 2.25rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15);
+  }
+  .step-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .step-pill.active {
+    background: #0284c7;
+    color: #ffffff;
+  }
+  .step-pill.completed {
+    background: #059669;
+    color: #ffffff;
+  }
+  .step-pill.pending {
+    background: #e2e8f0;
+    color: #64748b;
+  }
+  .slot-btn {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    background: #ffffff;
+    text-align: left;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    width: 100%;
+  }
+  .slot-btn:hover {
+    border-color: #0284c7;
+    background: #f0f9ff;
+  }
+  .slot-btn.selected {
+    border-color: #0284c7;
+    background: #e0f2fe;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.3);
+  }
+  .consent-box {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="portal-wrap">
+  <nav class="portal-navbar">
+    <div class="container d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <span class="fw-bold fs-4 text-primary">Auto<span class="text-dark">HR</span></span>
+        <span class="badge bg-primary-subtle text-primary ms-2">Candidate Interview Portal</span>
+      </div>
+      <div class="text-muted small">
+        <i class="bi bi-shield-lock-fill text-success"></i> Secure Invitation Session
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <!-- Header banner -->
+    <div class="portal-header-card">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <span class="badge bg-white text-dark mb-2 px-3 py-1 fw-bold">{{ company.name }}</span>
+          <h2 class="fw-bold mb-1">{{ job.title }}</h2>
+          <div class="text-white-50 small">
+            <span class="me-3"><i class="bi bi-geo-alt"></i> {{ job.city }} ({{ job.work_mode }})</span>
+            <span class="me-3"><i class="bi bi-briefcase"></i> {{ job.employment_type }}</span>
+            <span><i class="bi bi-person"></i> Candidate: <strong>{{ candidate.full_name }}</strong></span>
+          </div>
+        </div>
+        <div class="text-md-end">
+          <div class="small text-white-50">Invitation Status</div>
+          <div class="badge bg-success-subtle text-success fs-6 px-3 py-1 mt-1">
+            <i class="bi bi-check-circle me-1"></i> Active Shortlist
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stepper indicator -->
+    <div class="d-flex flex-wrap gap-2 mb-4 justify-content-center">
+      <div class="step-pill {% if not schedule %}active{% else %}completed{% endif %}" id="pill-step-1">
+        <span class="badge bg-white text-dark rounded-circle">1</span> Select Interview Slot
+      </div>
+      <div class="step-pill {% if schedule and not consent %}active{% elif consent %}completed{% else %}pending{% endif %}" id="pill-step-2">
+        <span class="badge bg-white text-dark rounded-circle">2</span> Mandatory Consent Gate
+      </div>
+      <div class="step-pill {% if consent %}active{% else %}pending{% endif %}" id="pill-step-3">
+        <span class="badge bg-white text-dark rounded-circle">3</span> Enter Interview Room
+      </div>
+    </div>
+
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-8">
+        <!-- Notification Alert -->
+        <div class="alert d-none mb-3 py-2 px-3 small" id="portal-alert" role="alert"></div>
+
+        <!-- ================= STEP 1: SELF SCHEDULING ================= -->
+        <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 {% if schedule %}d-none{% endif %}" id="pane-step-1">
+          <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+            <div>
+              <h4 class="fw-bold mb-1"><i class="bi bi-calendar2-week text-primary me-2"></i>Choose Interview Time Slot</h4>
+              <p class="text-muted small mb-0">Select your preferred date and time for the 3-stage AI evaluation session.</p>
+            </div>
+            <span class="badge bg-secondary-subtle text-dark">Timezone: Asia/Karachi (PKT)</span>
+          </div>
+
+          <div class="mb-4">
+            {% if available_slots %}
+              <div class="row g-2" id="slot-grid">
+                {% for slot in available_slots %}
+                <div class="col-12 col-md-6">
+                  <button type="button" class="slot-btn" data-start="{{ slot.start_iso }}" data-end="{{ slot.end_iso }}">
+                    <div class="fw-semibold text-dark">{{ slot.day_label }}</div>
+                    <div class="text-muted small"><i class="bi bi-clock me-1"></i>{{ slot.time_label }}</div>
+                  </button>
+                </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="alert alert-info py-2">No predefined slots remaining. Please proceed directly to immediate onboarding.</div>
+            {% endif %}
+          </div>
+
+          <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-primary px-4 py-2 fw-semibold" id="btn-confirm-slot" disabled>
+              Continue to Consent Gate <i class="bi bi-arrow-right ms-1"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- ================= STEP 2: MANDATORY CONSENT GATE ================= -->
+        <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 {% if not schedule or consent %}d-none{% endif %}" id="pane-step-2">
+          <div class="border-bottom pb-2 mb-3">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="badge bg-danger-subtle text-danger px-2 py-1"><i class="bi bi-shield-exclamation me-1"></i>Mandatory Gate</span>
+              <h4 class="fw-bold mb-0">AI Recruitment Consent &amp; Privacy Notice</h4>
+            </div>
+            <p class="text-muted small mb-0">
+              In accordance with recruitment regulations and data privacy protocols, your explicit consent is strictly required to proceed.
+            </p>
+          </div>
+
+          <form id="consent-form">
+            <div class="consent-box">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="consent_recording" required>
+                <label class="form-check-label fw-semibold text-dark" for="consent_recording">
+                  Audio &amp; Video Recording Consent <span class="text-danger">*</span>
+                </label>
+                <div class="text-muted small mt-1">
+                  I give full permission for my video feed, audio stream, and interview answers to be recorded during this session.
+                  Recordings are protected, stored securely, and retained strictly in accordance with {{ company.name }}'s recruitment policy.
+                </div>
+              </div>
+            </div>
+
+            <div class="consent-box">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="consent_ai_processing" required>
+                <label class="form-check-label fw-semibold text-dark" for="consent_ai_processing">
+                  AI Automated Transcription &amp; Rubric Scoring Consent <span class="text-danger">*</span>
+                </label>
+                <div class="text-muted small mt-1">
+                  I acknowledge and agree that my verbal and technical responses will be processed by artificial intelligence models
+                  (speech-to-text, competency rubric analysis, and scoring across communication, technical depth, and problem-solving)
+                  solely for evaluating fit for the {{ job.title }} position.
+                </div>
+              </div>
+            </div>
+
+            <div class="alert alert-secondary py-2 px-3 small mb-4">
+              <i class="bi bi-info-circle me-1 text-primary"></i>
+              Your IP address and submission timestamp will be logged with this verification record.
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+              <button type="button" class="btn btn-outline-secondary px-3" id="btn-back-to-slots">
+                <i class="bi bi-arrow-left me-1"></i> Change Slot
+              </button>
+              <button type="submit" class="btn btn-success px-4 py-2 fw-semibold" id="btn-submit-consent" disabled>
+                <i class="bi bi-shield-check me-1"></i> Accept &amp; Enter Interview Room
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ================= STEP 3: READY TO ENTER ROOM ================= -->
+        <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 text-center {% if not consent %}d-none{% endif %}" id="pane-step-3">
+          <div class="mb-3">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success-subtle text-success" style="width: 72px; height: 72px;">
+              <i class="bi bi-camera-video-fill fs-2"></i>
+            </span>
+          </div>
+          <h3 class="fw-bold mb-2">You Are Ready for the Interview</h3>
+          <p class="text-muted mb-4">
+            Your schedule slot and mandatory AI interview consent have been verified and recorded.<br>
+            Please ensure you are in a quiet room with a functioning microphone and camera.
+          </p>
+          <div>
+            <a href="/interview/{{ magic_token }}/room/" class="btn btn-primary btn-lg px-5 py-2 fw-bold shadow-sm">
+              <i class="bi bi-door-open-fill me-2"></i> Enter Interview Room Now
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var magicToken = "{{ magic_token }}";
+  var selectedStart = null;
+  var selectedEnd = null;
+
+  var alertBox = document.getElementById("portal-alert");
+  function showAlert(msg, isSuccess) {
+    if (!alertBox) return;
+    alertBox.textContent = msg;
+    alertBox.className = "alert py-2 px-3 small mb-3 " + (isSuccess ? "alert-success" : "alert-danger");
+    alertBox.classList.remove("d-none");
+  }
+
+  // Slot selection
+  var slotButtons = document.querySelectorAll(".slot-btn");
+  var confirmSlotBtn = document.getElementById("btn-confirm-slot");
+
+  slotButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      slotButtons.forEach(function (b) { b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      selectedStart = btn.getAttribute("data-start");
+      selectedEnd = btn.getAttribute("data-end");
+      if (confirmSlotBtn) confirmSlotBtn.disabled = false;
+    });
+  });
+
+  if (confirmSlotBtn) {
+    confirmSlotBtn.addEventListener("click", function () {
+      if (!selectedStart || !selectedEnd) return;
+      confirmSlotBtn.disabled = true;
+      confirmSlotBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Reserving slot...';
+
+      fetch("/interview/" + magicToken + "/schedule/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scheduled_start: selectedStart,
+          scheduled_end: selectedEnd,
+          timezone: "Asia/Karachi"
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        confirmSlotBtn.disabled = false;
+        confirmSlotBtn.innerHTML = 'Continue to Consent Gate <i class="bi bi-arrow-right ms-1"></i>';
+        if (!res.ok) {
+          showAlert(res.error || "Failed to schedule slot.", false);
+          return;
+        }
+        document.getElementById("pane-step-1").classList.add("d-none");
+        document.getElementById("pane-step-2").classList.remove("d-none");
+        document.getElementById("pill-step-1").className = "step-pill completed";
+        document.getElementById("pill-step-2").className = "step-pill active";
+        showAlert("Slot reserved! Please review and accept the consent conditions.", true);
+      })
+      .catch(function () {
+        confirmSlotBtn.disabled = false;
+        confirmSlotBtn.innerHTML = 'Continue to Consent Gate <i class="bi bi-arrow-right ms-1"></i>';
+        showAlert("Network error while reserving slot.", false);
+      });
+    });
+  }
+
+  var btnBackToSlots = document.getElementById("btn-back-to-slots");
+  if (btnBackToSlots) {
+    btnBackToSlots.addEventListener("click", function () {
+      document.getElementById("pane-step-2").classList.add("d-none");
+      document.getElementById("pane-step-1").classList.remove("d-none");
+      document.getElementById("pill-step-2").className = "step-pill pending";
+      document.getElementById("pill-step-1").className = "step-pill active";
+    });
+  }
+
+  // Consent checkbox enforcement
+  var consentRec = document.getElementById("consent_recording");
+  var consentAi = document.getElementById("consent_ai_processing");
+  var btnSubmitConsent = document.getElementById("btn-submit-consent");
+
+  function validateConsent() {
+    if (btnSubmitConsent) {
+      btnSubmitConsent.disabled = !(consentRec && consentRec.checked && consentAi && consentAi.checked);
+    }
+  }
+
+  if (consentRec) consentRec.addEventListener("change", validateConsent);
+  if (consentAi) consentAi.addEventListener("change", validateConsent);
+
+  var consentForm = document.getElementById("consent-form");
+  if (consentForm) {
+    consentForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (!consentRec.checked || !consentAi.checked) {
+        showAlert("Both consent checkboxes are mandatory to proceed.", false);
+        return;
+      }
+      btnSubmitConsent.disabled = true;
+      btnSubmitConsent.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Recording Consent...';
+
+      fetch("/interview/" + magicToken + "/consent/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          consent_recording: true,
+          consent_ai_processing: true
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) {
+          btnSubmitConsent.disabled = false;
+          btnSubmitConsent.innerHTML = '<i class="bi bi-shield-check me-1"></i> Accept & Enter Interview Room';
+          showAlert(res.error || "Failed to confirm consent.", false);
+          return;
+        }
+        window.location.href = res.room_url || ("/interview/" + magicToken + "/room/");
+      })
+      .catch(function () {
+        btnSubmitConsent.disabled = false;
+        btnSubmitConsent.innerHTML = '<i class="bi bi-shield-check me-1"></i> Accept & Enter Interview Room';
+        showAlert("Network error while recording consent.", false);
+      });
+    });
+  }
+});
+</script>
+{% endblock %}
+

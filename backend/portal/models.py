@@ -251,6 +251,223 @@ class CvEvaluation(models.Model):
         db_table = "cv_evaluations"
 
 
+class CandidateInvitation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.OneToOneField(
+        Application,
+        on_delete=models.CASCADE,
+        db_column="application_id",
+        related_name="invitation",
+    )
+    magic_token = models.CharField(max_length=128, unique=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    accepted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = "candidate_invitations"
+
+    def is_expired(self):
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+
+
+class InterviewSchedule(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        db_column="application_id",
+        related_name="schedules",
+    )
+    scheduled_start = models.DateTimeField()
+    scheduled_end = models.DateTimeField()
+    timezone = models.CharField(max_length=50, default="Asia/Karachi")
+    room_url = models.TextField(blank=True, null=True)
+    is_rescheduled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = "interview_schedules"
+
+
+class InterviewConsent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    interview_schedule = models.OneToOneField(
+        InterviewSchedule,
+        on_delete=models.CASCADE,
+        db_column="interview_schedule_id",
+        related_name="consent",
+    )
+    consent_recording = models.BooleanField()
+    consent_ai_processing = models.BooleanField()
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField()
+    consented_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = "interview_consents"
+
+
+class Interview(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        db_column="application_id",
+        related_name="interviews",
+    )
+    interview_schedule = models.ForeignKey(
+        InterviewSchedule,
+        on_delete=models.RESTRICT,
+        db_column="interview_schedule_id",
+        related_name="interviews",
+    )
+    status = models.CharField(max_length=32, default="pending")
+    recording_url = models.TextField(blank=True, null=True)
+    recording_file_size_bytes = models.BigIntegerField(blank=True, null=True)
+    media_retention_status = models.CharField(max_length=32, default="active")
+    media_purged_at = models.DateTimeField(blank=True, null=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    ended_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = "interviews"
+
+
+class InterviewStage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    interview = models.ForeignKey(
+        Interview,
+        on_delete=models.CASCADE,
+        db_column="interview_id",
+        related_name="stages",
+    )
+    stage_type = models.CharField(max_length=32)
+    sequence_order = models.IntegerField()
+    status = models.CharField(max_length=32, default="not_started")
+    started_at = models.DateTimeField(blank=True, null=True)
+    ended_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = "interview_stages"
+        unique_together = [["interview", "sequence_order"]]
+
+
+class InterviewQuestionAnswer(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    stage = models.ForeignKey(
+        InterviewStage,
+        on_delete=models.CASCADE,
+        db_column="stage_id",
+        related_name="questions_answers",
+    )
+    question_number = models.IntegerField()
+    question_text = models.TextField()
+    audio_clip_url = models.TextField(blank=True, null=True)
+    transcript_text = models.TextField(blank=True, null=True)
+    duration_seconds = models.IntegerField(blank=True, null=True)
+    communication_score = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
+    confidence_score = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
+    technical_score = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
+    relevance_score = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
+    problem_solving_score = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True)
+    ai_rationale = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = "interview_questions_answers"
+        unique_together = [["stage", "question_number"]]
+
+
+class InterviewEvaluation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    interview = models.OneToOneField(
+        Interview,
+        on_delete=models.CASCADE,
+        db_column="interview_id",
+        related_name="evaluation",
+    )
+    communication_avg = models.DecimalField(max_digits=4, decimal_places=2)
+    confidence_avg = models.DecimalField(max_digits=4, decimal_places=2)
+    technical_avg = models.DecimalField(max_digits=4, decimal_places=2)
+    relevance_avg = models.DecimalField(max_digits=4, decimal_places=2)
+    problem_solving_avg = models.DecimalField(max_digits=4, decimal_places=2)
+    composite_interview_score = models.DecimalField(max_digits=5, decimal_places=2)
+    strengths = ArrayField(models.TextField(), default=list)
+    weaknesses = ArrayField(models.TextField(), default=list)
+    executive_summary = models.TextField()
+    evaluated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = "interview_evaluations"
+
+
+class CandidateFinalRanking(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job_posting = models.ForeignKey(
+        JobPosting,
+        on_delete=models.CASCADE,
+        db_column="job_posting_id",
+        related_name="final_rankings",
+    )
+    application = models.OneToOneField(
+        Application,
+        on_delete=models.CASCADE,
+        db_column="application_id",
+        related_name="final_ranking",
+    )
+    final_rank = models.IntegerField()
+    cv_score = models.DecimalField(max_digits=5, decimal_places=2)
+    interview_score = models.DecimalField(max_digits=5, decimal_places=2)
+    composite_score = models.DecimalField(max_digits=5, decimal_places=2)
+    decision_verdict = models.CharField(max_length=32)
+    ai_justification = models.TextField()
+    recording_retained = models.BooleanField(default=False)
+    hr_override_verdict = models.CharField(max_length=32, blank=True, null=True)
+    hr_feedback_notes = models.TextField(blank=True, null=True)
+    calculated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = "candidate_final_rankings"
+        unique_together = [["job_posting", "final_rank"]]
+
+
+class EmailNotification(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.SET_NULL,
+        db_column="application_id",
+        related_name="notifications",
+        blank=True,
+        null=True,
+    )
+    recipient_email = models.EmailField()
+    notification_type = models.CharField(max_length=64)
+    subject = models.CharField(max_length=255)
+    body_text = models.TextField()
+    status = models.CharField(max_length=32, default="queued")
+    external_provider_id = models.CharField(max_length=255, blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = "email_notifications"
+
+
 # Django-managed profile & integration tables
 from .profile_models import (  # noqa: E402, F401
     IntegrationConnection,

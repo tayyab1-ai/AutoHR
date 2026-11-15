@@ -11,6 +11,7 @@ from .cv_scoring_service import (
     serialize_application,
 )
 from .decorators import hr_login_required
+from .google_form_sync_service import sync_all_active_forms, sync_job_form_responses
 from .models import Application, JobPosting
 from .services import get_job_for_company, jobs_for_dashboard, update_job_cv_metrics
 from .session_user import workspace_shell_for_company
@@ -171,4 +172,49 @@ def application_decision_api(request, application_id):
             **snapshot,
         }
     )
+
+
+@hr_login_required
+@require_POST
+def sync_job_form_api(request, job_id):
+    company = request.user.db_user.company
+    user = request.user.db_user
+    try:
+        job = get_job_for_company(job_id, company)
+    except JobPosting.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Job not found."}, status=404)
+
+    result = sync_job_form_responses(job, user_id=user.id)
+    snapshot = _company_snapshot(company)
+    return JsonResponse(
+        {
+            "ok": result.get("ok", False),
+            "message": result.get("message", ""),
+            "synced_count": result.get("synced_count", 0),
+            "total_responses": result.get("total_responses", 0),
+            "skipped_count": result.get("skipped_count", 0),
+            "errors": result.get("errors", []),
+            **snapshot,
+        }
+    )
+
+
+@hr_login_required
+@require_POST
+def sync_all_forms_api(request):
+    company = request.user.db_user.company
+    user = request.user.db_user
+    result = sync_all_active_forms(company=company, user_id=user.id)
+    snapshot = _company_snapshot(company)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": f"Synced {result.get('total_synced', 0)} new candidate(s) across active jobs.",
+            "total_synced": result.get("total_synced", 0),
+            "jobs_checked": result.get("jobs_checked", 0),
+            "results": result.get("results", []),
+            **snapshot,
+        }
+    )
+
 

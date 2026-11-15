@@ -379,6 +379,7 @@ def score_candidate_cv_for_job(
     phone: str = "",
     location: str = "",
     source: str = "manual_upload",
+    source_message_id: str = "",
 ) -> Application:
     """Parse CV, evaluate with Groq against job rubric, compute weighted score, and persist."""
     raw_text, raw_bytes, orig_filename, mime_type = extract_resume_content(
@@ -452,6 +453,7 @@ def score_candidate_cv_for_job(
             job_posting=job,
             candidate=candidate,
             source=source,
+            source_message_id=source_message_id or None,
             resume_file_url=resume_url,
             resume_original_filename=orig_filename,
             resume_mime_type=mime_type,
@@ -461,6 +463,8 @@ def score_candidate_cv_for_job(
         )
     else:
         app.source = source
+        if source_message_id:
+            app.source_message_id = source_message_id
         app.resume_file_url = resume_url
         app.resume_original_filename = orig_filename
         app.resume_mime_type = mime_type

@@ -2,7 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 
-from portal import account_views, cv_views, form_views, google_auth_views, profile_views, views
+from portal import account_views, cv_views, form_views, google_auth_views, interview_views, profile_views, views
 
 urlpatterns = [
     path("", views.landing, name="landing"),
@@ -77,6 +77,46 @@ urlpatterns = [
         "dashboard/applications/<uuid:application_id>/decision/",
         cv_views.application_decision_api,
         name="application_decision_api",
+    ),
+    path(
+        "dashboard/jobs/<uuid:job_id>/sync-form/",
+        cv_views.sync_job_form_api,
+        name="sync_job_form_api",
+    ),
+    path(
+        "dashboard/forms/sync-all/",
+        cv_views.sync_all_forms_api,
+        name="sync_all_forms_api",
+    ),
+    path(
+        "dashboard/applications/<uuid:application_id>/invite/",
+        interview_views.invite_candidate_api,
+        name="invite_candidate_api",
+    ),
+    path(
+        "dashboard/jobs/<uuid:job_id>/invite-shortlisted/",
+        interview_views.bulk_invite_candidates_api,
+        name="bulk_invite_candidates_api",
+    ),
+    path(
+        "interview/<str:magic_token>/",
+        interview_views.candidate_interview_portal_view,
+        name="candidate_interview_portal",
+    ),
+    path(
+        "interview/<str:magic_token>/schedule/",
+        interview_views.candidate_schedule_slot_api,
+        name="candidate_schedule_slot_api",
+    ),
+    path(
+        "interview/<str:magic_token>/consent/",
+        interview_views.candidate_submit_consent_api,
+        name="candidate_submit_consent_api",
+    ),
+    path(
+        "interview/<str:magic_token>/room/",
+        interview_views.candidate_interview_room_view,
+        name="candidate_interview_room",
     ),
 ]
 

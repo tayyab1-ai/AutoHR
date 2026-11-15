@@ -1,6 +1,10 @@
+import logging
 import secrets
+from urllib.parse import urlparse
 
 from django.contrib.auth import login
+
+logger = logging.getLogger(__name__)
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -9,6 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .auth_services import find_or_create_google_user
 from .auth_user import HrAuthUser
 from .google_oauth import (
+    auth_redirect_uri,
     authorization_url,
     exchange_code,
     google_profile_from_credentials,
@@ -23,8 +28,27 @@ def _safe_next_path(request) -> str:
     return reverse("dashboard")
 
 
+def _loopback_host_redirect(request):
+    """Keep OAuth start on the exact loopback host configured for GOOGLE_AUTH_REDIRECT_URI."""
+    parsed = urlparse(auth_redirect_uri())
+    req_host = request.get_host().split(":")[0].lower()
+    target_host = (parsed.hostname or "").lower()
+    if (
+        parsed.scheme
+        and parsed.netloc
+        and parsed.netloc.lower() != request.get_host().lower()
+        and req_host in {"localhost", "127.0.0.1"}
+        and target_host in {"localhost", "127.0.0.1"}
+    ):
+        return redirect(f"{parsed.scheme}://{parsed.netloc}{request.get_full_path()}")
+    return None
+
+
 @require_GET
 def google_auth_start(request):
+    host_redirect = _loopback_host_redirect(request)
+    if host_redirect is not None:
+        return host_redirect
     if getattr(request.user, "is_authenticated", False) and hasattr(request.user, "db_user"):
         return redirect("dashboard")
 
@@ -47,9 +71,19 @@ def google_auth_start(request):
 def google_auth_callback(request):
     state = request.session.get("google_auth_state")
     if not state or request.GET.get("state") != state:
+        logger.warning(
+            "Google auth callback state mismatch (session_state_present=%s, query_keys=%s)",
+            bool(state),
+            list(request.GET.keys()),
+        )
         return redirect(reverse("login") + "?error=state_mismatch")
 
     if request.GET.get("error"):
+        logger.warning(
+            "Google auth callback denied by Google: error=%s description=%s",
+            request.GET.get("error"),
+            request.GET.get("error_description", ""),
+        )
         return redirect(reverse("login") + "?error=google_denied")
 
     code = request.GET.get("code")
@@ -59,7 +93,8 @@ def google_auth_callback(request):
     code_verifier = request.session.get("google_auth_code_verifier")
     try:
         creds = exchange_code("google_auth", state, code, code_verifier=code_verifier)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Google auth token exchange failed: %s", exc)
         return redirect(reverse("login") + "?error=google_exchange_failed")
 
     profile = google_profile_from_credentials(creds)

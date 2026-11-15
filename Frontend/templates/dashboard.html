@@ -276,7 +276,13 @@
             <option value="screened">Screened</option>
             <option value="rejected">Not Progressing</option>
           </select>
-          <button type="button" class="btn-db-primary ms-auto" data-open-score-cv-modal>
+          <button type="button" class="btn-db-secondary ms-auto" data-cv-sync-form title="Sync candidate responses from Google Forms">
+            <i class="bi bi-cloud-arrow-down"></i> Sync Form Responses
+          </button>
+          <button type="button" class="btn-db-secondary ms-2" data-cv-bulk-invite title="Send interview invitations to all shortlisted candidates">
+            <i class="bi bi-send-check"></i> Invite Shortlisted
+          </button>
+          <button type="button" class="btn-db-primary ms-2" data-open-score-cv-modal>
             <i class="bi bi-file-earmark-arrow-up"></i> Upload &amp; Score CV
           </button>
         </div>
@@ -636,6 +642,10 @@
     scoreUrl: "{% url 'score_cv_api' %}",
     metricsUrlTemplate: "{% url 'update_job_cv_metrics' job_id='00000000-0000-0000-0000-000000000001' %}",
     decisionUrlTemplate: "{% url 'application_decision_api' application_id='00000000-0000-0000-0000-000000000001' %}",
+    syncFormUrlTemplate: "{% url 'sync_job_form_api' job_id='00000000-0000-0000-0000-000000000001' %}",
+    syncAllFormsUrl: "{% url 'sync_all_forms_api' %}",
+    inviteUrlTemplate: "{% url 'invite_candidate_api' application_id='00000000-0000-0000-0000-000000000001' %}",
+    bulkInviteUrlTemplate: "{% url 'bulk_invite_candidates_api' job_id='00000000-0000-0000-0000-000000000001' %}",
     idPlaceholder: "00000000-0000-0000-0000-000000000001"
   };
 </script>
