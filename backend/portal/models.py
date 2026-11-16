@@ -161,7 +161,16 @@ class JobResponsibility(models.Model):
 
 class Candidate(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(unique=True)
+    # Candidates are owned by one company; email is unique per company (see migration 004).
+    company = models.ForeignKey(
+        "Company",
+        on_delete=models.CASCADE,
+        db_column="company_id",
+        related_name="candidates",
+        blank=True,
+        null=True,
+    )
+    email = models.EmailField()
     full_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=50, blank=True, null=True)
     linkedin_url = models.TextField(blank=True, null=True)

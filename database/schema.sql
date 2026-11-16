@@ -346,6 +346,7 @@ CREATE TRIGGER trg_job_board_postings_updated_at
 
 CREATE TABLE candidates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
     email CITEXT NOT NULL,
     full_name VARCHAR(200) NOT NULL,
     phone VARCHAR(50),
@@ -353,10 +354,11 @@ CREATE TABLE candidates (
     location VARCHAR(150),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_candidates_email UNIQUE (email)
+    CONSTRAINT uq_candidates_company_email UNIQUE (company_id, email)
 );
 
 CREATE INDEX idx_candidates_email ON candidates (email);
+CREATE INDEX idx_candidates_company ON candidates (company_id);
 
 CREATE TRIGGER trg_candidates_updated_at
     BEFORE UPDATE ON candidates

@@ -91,45 +91,6 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   animateVisiblePanel("overview");
 
-  /* ---------------- Candidate split view (Applications panel) ---------------- */
-  document.querySelectorAll("[data-candidate-card]").forEach(function (card) {
-    card.addEventListener("click", function () {
-      var id = card.getAttribute("data-candidate-card");
-      document.querySelectorAll("[data-candidate-card]").forEach(function (c) {
-        c.classList.toggle("is-selected", c === card);
-      });
-      document.querySelectorAll("[data-candidate-detail]").forEach(function (detail) {
-        var match = detail.getAttribute("data-candidate-detail") === id;
-        detail.classList.toggle("d-none", !match);
-        if (match) {
-          detail.querySelectorAll(".db-score-bar-fill[data-score]").forEach(function (bar) {
-            var score = bar.getAttribute("data-score");
-            bar.style.width = "0%";
-            requestAnimationFrame(function () {
-              bar.style.width = score + "%";
-            });
-          });
-        }
-      });
-    });
-  });
-
-  /* ---------------- Generic tab bars (candidate detail: overview/breakdown) ---------------- */
-  document.querySelectorAll("[data-tab-group]").forEach(function (group) {
-    var groupName = group.getAttribute("data-tab-group");
-    group.querySelectorAll("[data-tab-btn]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var tabName = btn.getAttribute("data-tab-btn");
-        group.querySelectorAll("[data-tab-btn]").forEach(function (b) {
-          b.classList.toggle("is-active", b === btn);
-        });
-        document.querySelectorAll('[data-tab-panel-group="' + groupName + '"]').forEach(function (panel) {
-          panel.classList.toggle("is-active", panel.getAttribute("data-tab-panel") === tabName);
-        });
-      });
-    });
-  });
-
   var draftCfg = document.getElementById("dashboard-draft-config");
   var deleteUrlTemplate = draftCfg ? draftCfg.getAttribute("data-delete-url-template") : "";
   var jobIdPlaceholder = draftCfg ? draftCfg.getAttribute("data-job-id-placeholder") : "";

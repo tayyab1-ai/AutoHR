@@ -447,3 +447,12 @@
   box-shadow: var(--shadow-lg);
   position: relative;
 }
+
+/* Copyable invitation links shown when an invite email could not be sent */
+.cv-invite-links { display: flex; flex-direction: column; gap: 8px; }
+.cv-invite-link-row .db-input { font-size: 12px; padding-top: 4px; padding-bottom: 4px; background: #fff; }
+
+/* Final rankings (leaderboard) table */
+.lb-table td { vertical-align: top; }
+.lb-table textarea.db-input { font-size: 12px; resize: vertical; min-height: 38px; }
+.lb-why-row td { background: var(--bg-surface-warm); }

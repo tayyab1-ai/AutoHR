@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import secrets
 from datetime import datetime, timedelta
@@ -11,7 +12,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from .google_oauth import get_credentials
+from .email_service import deliver_notification
 from .models import (
     Application,
     CandidateInvitation,
@@ -26,6 +27,23 @@ from .models import (
 _logger = logging.getLogger(__name__)
 
 DEFAULT_INVITATION_EXPIRY_DAYS = 7
+SLOT_DURATION_MINUTES = 45
+
+# Statuses from which HR may (re)send an interview invitation.
+INVITABLE_STATUSES = {"shortlisted", "interview_invited", "interview_scheduled"}
+
+
+class InvitationNotAllowed(ValueError):
+    """Raised when HR tries to invite a candidate who is not in an invitable state."""
+
+
+class SchedulingNotAllowed(ValueError):
+    """Raised when a candidate picks an invalid slot or tries to reschedule too late."""
+
+
+def interview_has_started(application: Application) -> bool:
+    """True once the candidate has given consent (the interview session exists)."""
+    return Interview.objects.filter(application=application).exists()
 
 
 def generate_magic_token() -> str:
@@ -40,7 +58,19 @@ def create_or_refresh_candidate_invitation(
     expiry_days: int = DEFAULT_INVITATION_EXPIRY_DAYS,
     base_url: str = "",
 ) -> tuple[CandidateInvitation, str]:
-    """Create or refresh an interview invitation magic link for a shortlisted candidate."""
+    """Create or refresh an interview invitation magic link for a shortlisted candidate.
+
+    - Only shortlisted / already-invited / scheduled (not yet started) candidates are eligible.
+    - An active link is kept (same token, expiry extended) so a re-send never breaks it.
+    - Once the candidate has consented and started, re-inviting is refused.
+    """
+    if application.status not in INVITABLE_STATUSES:
+        raise InvitationNotAllowed(
+            f"Only shortlisted candidates can be invited (current status: {application.status.replace('_', ' ')})."
+        )
+    if interview_has_started(application):
+        raise InvitationNotAllowed("This candidate has already started the interview; their existing link stays active.")
+
     now = timezone.now()
     expires_at = now + timedelta(days=expiry_days)
     token = generate_magic_token()
@@ -55,16 +85,17 @@ def create_or_refresh_candidate_invitation(
         },
     )
 
-    if not created and (invitation.is_expired() or invitation.is_used):
-        invitation.magic_token = token
+    if not created:
+        if invitation.is_expired():
+            invitation.magic_token = token  # expired links are replaced
         invitation.expires_at = expires_at
         invitation.is_used = False
         invitation.sent_at = now
         invitation.accepted_at = None
         invitation.save(update_fields=["magic_token", "expires_at", "is_used", "sent_at", "accepted_at"])
 
-    # Update application status
-    if application.status != "interview_scheduled":
+    # Update application status (a scheduled candidate keeps their slot)
+    if application.status == "shortlisted":
         application.status = "interview_invited"
         application.updated_at = now
         application.save(update_fields=["status", "updated_at"])
@@ -90,7 +121,7 @@ def create_or_refresh_candidate_invitation(
         f"The Hiring Team at {company.name}"
     )
 
-    EmailNotification.objects.create(
+    invitation._pending_notification = EmailNotification.objects.create(
         application=application,
         recipient_email=candidate.email,
         notification_type="interview_invite",
@@ -102,7 +133,29 @@ def create_or_refresh_candidate_invitation(
     return invitation, full_url
 
 
-def bulk_invite_shortlisted(job: JobPosting, *, base_url: str = "") -> dict[str, Any]:
+def invite_and_email(application: Application, *, base_url: str = "", sender_user_id=None) -> dict[str, Any]:
+    """Create/refresh the invitation, then email it through the company's connected Gmail.
+
+    Raises InvitationNotAllowed if the candidate is not eligible.
+    """
+    invitation, full_url = create_or_refresh_candidate_invitation(application, base_url=base_url)
+    notification = getattr(invitation, "_pending_notification", None)
+    delivery = {"sent": False, "error": "No email was queued."}
+    if notification is not None:
+        delivery = deliver_notification(
+            notification,
+            company=application.job_posting.company,
+            sender_user_id=sender_user_id,
+        )
+    return {
+        "invitation": invitation,
+        "invitation_url": full_url,
+        "email_sent": delivery["sent"],
+        "email_error": delivery["error"],
+    }
+
+
+def bulk_invite_shortlisted(job: JobPosting, *, base_url: str = "", sender_user_id=None) -> dict[str, Any]:
     """Invite all shortlisted candidates for a job who have not yet received an active invitation."""
     shortlisted_apps = Application.objects.filter(
         job_posting=job,
@@ -115,26 +168,32 @@ def bulk_invite_shortlisted(job: JobPosting, *, base_url: str = "") -> dict[str,
         existing_inv = getattr(app, "invitation", None)
         if existing_inv and not existing_inv.is_expired() and not existing_inv.is_used:
             continue
-        inv, url = create_or_refresh_candidate_invitation(app, base_url=base_url)
+        try:
+            res = invite_and_email(app, base_url=base_url, sender_user_id=sender_user_id)
+        except InvitationNotAllowed:
+            continue
         results.append(
             {
                 "application_id": str(app.id),
                 "candidate_name": app.candidate.full_name,
                 "candidate_email": app.candidate.email,
-                "invitation_url": url,
+                "invitation_url": res["invitation_url"],
+                "email_sent": res["email_sent"],
+                "email_error": res["email_error"],
             }
         )
 
     return {
         "ok": True,
         "invited_count": len(results),
+        "emailed_count": sum(1 for r in results if r["email_sent"]),
         "candidates": results,
     }
 
 
 def generate_available_slots(days_ahead: int = 5) -> list[dict[str, Any]]:
     """Generate available interview time slots for self-scheduling."""
-    now = timezone.now()
+    now = timezone.localtime()  # slot hours are office hours in the configured TIME_ZONE
     slots = []
     # Start looking from tomorrow or today if early
     start_day = 1 if now.hour >= 16 else 0
@@ -149,7 +208,7 @@ def generate_available_slots(days_ahead: int = 5) -> list[dict[str, Any]]:
             for h in slot_hours:
                 slot_start = current.replace(hour=h, minute=0, second=0, microsecond=0)
                 if slot_start > now + timedelta(hours=1):
-                    slot_end = slot_start + timedelta(minutes=45)
+                    slot_end = slot_start + timedelta(minutes=SLOT_DURATION_MINUTES)
                     slots.append(
                         {
                             "start_iso": slot_start.isoformat(),
@@ -164,6 +223,30 @@ def generate_available_slots(days_ahead: int = 5) -> list[dict[str, Any]]:
     return slots
 
 
+def validate_requested_slot(start_dt: datetime, *, days_ahead: int = 5) -> tuple[datetime, datetime]:
+    """Accept only a slot that the portal actually offered; returns (start, end)."""
+    for slot in generate_available_slots(days_ahead=days_ahead):
+        offered = datetime.fromisoformat(slot["start_iso"])
+        if offered == start_dt:
+            return offered, offered + timedelta(minutes=SLOT_DURATION_MINUTES)
+    raise SchedulingNotAllowed("Please choose one of the available interview slots shown on the page.")
+
+
+def safe_client_ip(request) -> str:
+    """Client IP for audit records. X-Forwarded-For is client-controlled, so it is
+    only trusted when TRUST_X_FORWARDED_FOR is enabled (behind a known proxy)."""
+    candidates = []
+    if getattr(settings, "TRUST_X_FORWARDED_FOR", False):
+        candidates.append((request.META.get("HTTP_X_FORWARDED_FOR") or "").split(",")[0].strip())
+    candidates.append(request.META.get("REMOTE_ADDR") or "")
+    for raw in candidates:
+        try:
+            return str(ipaddress.ip_address(raw))
+        except ValueError:
+            continue
+    return "127.0.0.1"
+
+
 @transaction.atomic
 def schedule_candidate_interview(
     invitation: CandidateInvitation,
@@ -173,8 +256,10 @@ def schedule_candidate_interview(
     timezone_name: str = "Asia/Karachi",
     room_url: str = "",
 ) -> InterviewSchedule:
-    """Schedule the interview time for a candidate invitation."""
+    """Schedule the interview time for a candidate invitation (only before the interview starts)."""
     app = invitation.application
+    if interview_has_started(app):
+        raise SchedulingNotAllowed("Your interview has already started or finished, so it can no longer be rescheduled.")
 
     schedule, _ = InterviewSchedule.objects.update_or_create(
         application=app,
@@ -210,7 +295,10 @@ def complete_consent_and_initialize_interview(
         raise ValueError("AI automated evaluation consent is mandatory to proceed with the interview.")
 
     now = timezone.now()
-    safe_ip = ip_address.split(",")[0].strip() if ip_address else "127.0.0.1"
+    try:
+        safe_ip = str(ipaddress.ip_address((ip_address or "").split(",")[0].strip()))
+    except ValueError:
+        safe_ip = "127.0.0.1"
 
     consent, _ = InterviewConsent.objects.update_or_create(
         interview_schedule=schedule,

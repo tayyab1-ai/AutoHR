@@ -133,8 +133,9 @@ def auth_logout_view(request):
     return JsonResponse({"ok": True, "redirect": reverse("landing")})
 
 
-@require_GET
+@require_POST
 def auth_logout_get(request):
+    """Form-POST sign out (CSRF-protected, so other sites cannot log the user out)."""
     from django.contrib.auth import logout
 
     revoke_current_hr_session(request)

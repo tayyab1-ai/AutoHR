@@ -250,8 +250,7 @@
             </table>
           </div>
           <div class="db-pagination">
-            <span>{% if jobs %}Showing 1 to {{ jobs|length }} of {{ jobs|length }} jobs{% else %}No jobs to show{% endif %}</span>
-            <div class="d-flex gap-1"><button class="db-page-btn is-active">1</button></div>
+            <span>{% if jobs %}Showing all {{ jobs|length }} job{{ jobs|length|pluralize }}{% else %}No jobs to show{% endif %}</span>
           </div>
         </div>
       </div>
@@ -281,6 +280,9 @@
           </button>
           <button type="button" class="btn-db-secondary ms-2" data-cv-bulk-invite title="Send interview invitations to all shortlisted candidates">
             <i class="bi bi-send-check"></i> Invite Shortlisted
+          </button>
+          <button type="button" class="btn-db-secondary ms-2" data-go-panel="interviews" data-lb-open title="View final candidate rankings for the selected job">
+            <i class="bi bi-trophy"></i> Final Rankings
           </button>
           <button type="button" class="btn-db-primary ms-2" data-open-score-cv-modal>
             <i class="bi bi-file-earmark-arrow-up"></i> Upload &amp; Score CV
@@ -371,7 +373,7 @@
 
       <!-- ================= PANEL: INTERVIEWS ================= -->
       <div class="db-panel" data-panel="interviews">
-        <div class="db-card">
+        <div class="db-card mb-3">
           <div class="db-table-wrapper">
             <table class="db-table">
               <thead><tr><th>Candidate</th><th>Role</th><th>Stage</th><th>Date</th><th>Time (PKT)</th><th>Status</th></tr></thead>
@@ -388,6 +390,28 @@
                 {% empty %}
                 <tr><td colspan="6" class="text-muted text-center py-4">No interviews scheduled yet.</td></tr>
                 {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="db-card" data-lb-card id="final-rankings">
+          <div class="db-card-header flex-wrap gap-2">
+            <h2 class="db-card-title mb-0">
+              <i class="bi bi-trophy-fill text-warning"></i> Final Rankings
+              <span class="text-muted fw-normal small" data-lb-job-label></span>
+            </h2>
+            <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+              <select class="db-select" data-lb-job aria-label="Job for final rankings"></select>
+              <button type="button" class="btn-db-secondary" data-lb-refresh><i class="bi bi-arrow-clockwise"></i> Load</button>
+            </div>
+          </div>
+          <div class="alert py-2 px-3 small d-none mx-3 mt-3 mb-0" data-lb-toast role="status"></div>
+          <div class="db-table-wrapper">
+            <table class="db-table lb-table">
+              <thead><tr><th>#</th><th>Candidate</th><th>CV</th><th>Interview</th><th>Composite</th><th>AI Verdict</th><th>HR Override</th><th></th></tr></thead>
+              <tbody data-lb-body>
+                <tr><td colspan="8" class="text-muted text-center py-4">Select a job to view its final rankings.</td></tr>
               </tbody>
             </table>
           </div>
@@ -432,7 +456,10 @@
             {% else %}
             <button type="button" class="btn btn-db-secondary btn-sm" data-open-profile-wizard data-wizard-step="3">Profile &amp; integrations</button>
             {% endif %}
-            <a href="{% url 'logout' %}" class="btn-db-secondary"><i class="bi bi-box-arrow-right"></i> Sign out</a>
+            <form method="post" action="{% url 'logout' %}" class="d-inline m-0">
+              {% csrf_token %}
+              <button type="submit" class="btn-db-secondary"><i class="bi bi-box-arrow-right"></i> Sign out</button>
+            </form>
           </div>
         </div>
 
@@ -646,6 +673,9 @@
     syncAllFormsUrl: "{% url 'sync_all_forms_api' %}",
     inviteUrlTemplate: "{% url 'invite_candidate_api' application_id='00000000-0000-0000-0000-000000000001' %}",
     bulkInviteUrlTemplate: "{% url 'bulk_invite_candidates_api' job_id='00000000-0000-0000-0000-000000000001' %}",
+    leaderboardUrlTemplate: "{% url 'job_leaderboard_api' job_id='00000000-0000-0000-0000-000000000001' %}",
+    overrideUrlTemplate: "{% url 'hr_override_ranking_api' ranking_id='00000000-0000-0000-0000-000000000001' %}",
+    dashboardUrl: "{% url 'dashboard' %}",
     idPlaceholder: "00000000-0000-0000-0000-000000000001"
   };
 </script>
@@ -671,6 +701,7 @@
 <script src="{% static_v 'js/account_profile.js' %}"></script>
 <script src="{% static_v 'js/create_job.js' %}"></script>
 <script src="{% static_v 'js/cv_scoring.js' %}"></script>
+<script src="{% static_v 'js/leaderboard.js' %}"></script>
 <script>
   // Resolve the chart bars' final height (computed server-side via widthratio)
   // after dashboard.js wires up the panel-activation animation.

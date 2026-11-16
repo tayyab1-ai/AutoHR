@@ -256,6 +256,8 @@ document.addEventListener("DOMContentLoaded", function () {
     alertBox.classList.remove("d-none");
   }
 
+  var csrfToken = "{{ csrf_token }}";
+
   // Slot selection
   var slotButtons = document.querySelectorAll(".slot-btn");
   var confirmSlotBtn = document.getElementById("btn-confirm-slot");
@@ -278,7 +280,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       fetch("/interview/" + magicToken + "/schedule/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
         body: JSON.stringify({
           scheduled_start: selectedStart,
           scheduled_end: selectedEnd,
@@ -344,7 +346,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       fetch("/interview/" + magicToken + "/consent/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
         body: JSON.stringify({
           consent_recording: true,
           consent_ai_processing: true

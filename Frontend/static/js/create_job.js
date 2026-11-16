@@ -326,19 +326,66 @@ document.addEventListener("DOMContentLoaded", function () {
   toggleConditionals();
   syncPreview();
 
-  function showFormErrors(payload) {
-    if (!errorBox) return;
+  /* Flatten an error value (string | list | {field: string|list}) into strings. */
+  function flattenErrors(value, out) {
+    out = out || [];
+    if (value == null) return out;
+    if (typeof value === "string") {
+      if (value.trim()) out.push(value);
+    } else if (Array.isArray(value)) {
+      value.forEach(function (v) { flattenErrors(v, out); });
+    } else if (typeof value === "object") {
+      if (typeof value.message === "string" && value.message.trim()) {
+        out.push(value.message);
+      } else {
+        Object.keys(value).forEach(function (k) { flattenErrors(value[k], out); });
+      }
+    }
+    return out;
+  }
+
+  /* Messages from a payload's error keys (array/object values, plus a top-level `error` string). */
+  function payloadErrorLines(payload) {
     var lines = [];
     if (payload && typeof payload === "object") {
       Object.keys(payload).forEach(function (key) {
         var msgs = payload[key];
-        if (Array.isArray(msgs)) {
-          msgs.forEach(function (m) {
-            lines.push(m);
-          });
+        if (Array.isArray(msgs) || (msgs && typeof msgs === "object")) {
+          flattenErrors(msgs, lines);
+        } else if ((key === "error" || key === "errors") && typeof msgs === "string") {
+          lines.push(msgs);
         }
       });
     }
+    return lines;
+  }
+
+  /* First readable error from data.errors (preferred keys first, then any key), then data.error. */
+  function firstErrorMessage(data, fallback) {
+    data = data || {};
+    var errors = data.errors;
+    if (errors) {
+      if (typeof errors === "string" || Array.isArray(errors)) {
+        var direct = flattenErrors(errors);
+        if (direct.length) return direct[0];
+      } else if (typeof errors === "object") {
+        var preferred = ["google", "__all__", "form_url", "job", "fields"];
+        var keys = preferred.filter(function (k) { return k in errors; }).concat(
+          Object.keys(errors).filter(function (k) { return preferred.indexOf(k) === -1; })
+        );
+        for (var i = 0; i < keys.length; i++) {
+          var msgs = flattenErrors(errors[keys[i]]);
+          if (msgs.length) return msgs[0];
+        }
+      }
+    }
+    if (typeof data.error === "string" && data.error.trim()) return data.error;
+    return fallback;
+  }
+
+  function showFormErrors(payload) {
+    if (!errorBox) return;
+    var lines = payloadErrorLines(payload);
     if (!lines.length) lines.push("Could not save the job. Check required fields.");
     errorBox.textContent = lines.join(" ");
     errorBox.classList.remove("d-none");
@@ -347,17 +394,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function showJdErrors(payload) {
     if (!jdErrors) return;
-    var lines = [];
-    if (payload && typeof payload === "object") {
-      Object.keys(payload).forEach(function (key) {
-        var msgs = payload[key];
-        if (Array.isArray(msgs)) {
-          msgs.forEach(function (m) {
-            lines.push(m);
-          });
-        }
-      });
-    }
+    var lines = payloadErrorLines(payload);
     if (!lines.length) lines.push("Something went wrong while generating the description.");
     jdErrors.textContent = lines.join(" ");
     jdErrors.classList.remove("d-none");
@@ -766,7 +803,7 @@ document.addEventListener("DOMContentLoaded", function () {
       };
       postJson(jobApiUrl("form-save", currentJobId), payload).then(function (result) {
         if (!result.ok) {
-          showFormConfigError((result.data.errors && result.data.errors.__all__ && result.data.errors.__all__[0]) || "Could not save.");
+          showFormConfigError(firstErrorMessage(result.data, "Could not save."));
           return;
         }
         showFormConfigSuccess(result.data.message || "Saved.");
@@ -837,10 +874,7 @@ document.addEventListener("DOMContentLoaded", function () {
               openProfileGateModal();
               return;
             }
-            var errMsg =
-              result.data.errors && (result.data.errors.google || result.data.errors.__all__)
-                ? [].concat(result.data.errors.google || result.data.errors.__all__).join(" ")
-                : "Could not create form.";
+            var errMsg = firstErrorMessage(result.data, "Could not create form.");
             if (result.data.integrations_settings) {
               errMsg += ' Open Account → Integrations (or "Profile & integrations") and reconnect Google Workspace.';
             }
@@ -890,11 +924,7 @@ document.addEventListener("DOMContentLoaded", function () {
       })
         .then(function (result) {
           if (!result.ok) {
-            showFormConfigError(
-              (result.data.errors && (result.data.errors.form_url || result.data.errors.__all__))
-                ? [].concat(result.data.errors.form_url || result.data.errors.__all__).join(" ")
-                : "Could not save form link."
-            );
+            showFormConfigError(firstErrorMessage(result.data, "Could not save form link."));
             return;
           }
           openJobCompleteStep(

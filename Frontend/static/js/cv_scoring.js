@@ -59,11 +59,93 @@ document.addEventListener("DOMContentLoaded", function () {
     return tpl.split(cfg.idPlaceholder).join(id);
   }
 
-  function showToast(ok, message) {
+  function showToast(ok, message, tone) {
     if (!cfgToast) return;
     cfgToast.textContent = message;
-    cfgToast.classList.remove("d-none", "alert-success", "alert-danger");
-    cfgToast.classList.add(ok ? "alert-success" : "alert-danger");
+    cfgToast.classList.remove("d-none", "alert-success", "alert-danger", "alert-warning");
+    cfgToast.classList.add(tone ? "alert-" + tone : (ok ? "alert-success" : "alert-danger"));
+  }
+
+  function copyText(input, onDone) {
+    var fallback = function () {
+      input.select();
+      try {
+        if (document.execCommand("copy")) onDone();
+      } catch (e) { /* user can still copy manually from the selected field */ }
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(input.value).then(onDone, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  /* Toast plus a list of copyable invitation links (for invites whose email failed). */
+  function showInviteLinksToast(message, tone, links) {
+    showToast(tone !== "danger", message, tone);
+    if (!cfgToast || !links || !links.length) return;
+    var wrap = document.createElement("div");
+    wrap.className = "cv-invite-links mt-2";
+    links.forEach(function (item) {
+      var row = document.createElement("div");
+      row.className = "cv-invite-link-row";
+      var who = document.createElement("div");
+      who.className = "small fw-semibold";
+      who.textContent = (item.name || "Candidate") + (item.email ? " (" + item.email + ")" : "");
+      if (item.error) {
+        var err = document.createElement("span");
+        err.className = "fw-normal text-danger ms-1";
+        err.textContent = "— " + item.error;
+        who.appendChild(err);
+      }
+      var line = document.createElement("div");
+      line.className = "d-flex gap-1 align-items-center";
+      var input = document.createElement("input");
+      input.type = "text";
+      input.readOnly = true;
+      input.className = "db-input flex-grow-1";
+      input.value = item.url || "";
+      input.setAttribute("aria-label", "Invitation link");
+      input.addEventListener("focus", function () { input.select(); });
+      var copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "btn-db-secondary btn-sm";
+      copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+      copyBtn.addEventListener("click", function () {
+        copyText(input, function () {
+          copyBtn.innerHTML = '<i class="bi bi-check2"></i> Copied';
+          window.setTimeout(function () { copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copy'; }, 1500);
+        });
+      });
+      line.appendChild(input);
+      line.appendChild(copyBtn);
+      row.appendChild(who);
+      row.appendChild(line);
+      wrap.appendChild(row);
+    });
+    cfgToast.appendChild(wrap);
+  }
+
+  /* Reload jobs/candidates from the dashboard page's embedded JSON (there is no list API). */
+  function reloadCandidates() {
+    return fetch(cfg.dashboardUrl || "/dashboard/", {
+      headers: { Accept: "text/html" },
+      credentials: "same-origin",
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var cEl = doc.getElementById("cv-candidates-data");
+        var jEl = doc.getElementById("cv-jobs-data");
+        if (!cEl) throw new Error("No candidate data in page");
+        candidates = JSON.parse(cEl.textContent || "[]") || candidates;
+        if (jEl) jobs = JSON.parse(jEl.textContent || "[]") || jobs;
+        populateJobSelects(jobFilter ? jobFilter.value : "");
+        renderCandidates();
+      });
   }
 
   function populateJobSelects(preferredId) {
@@ -355,6 +437,7 @@ document.addEventListener("DOMContentLoaded", function () {
     detailWrap.querySelectorAll("[data-cv-decision]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var dec = btn.getAttribute("data-cv-decision");
+        var origHtml = btn.innerHTML;
         btn.disabled = true;
         fetch(urlFromTemplate(cfg.decisionUrlTemplate, c.id, "/dashboard/applications/" + c.id + "/decision/"), {
           method: "POST",
@@ -369,10 +452,20 @@ document.addEventListener("DOMContentLoaded", function () {
             return r.json().then(function (d) { return { ok: r.ok, data: d }; });
           })
           .then(function (res) {
-            if (!res.ok || !res.data.ok) return;
+            if (!res.ok || !res.data || !res.data.ok) {
+              btn.disabled = false;
+              btn.innerHTML = origHtml;
+              showToast(false, (res.data && res.data.error) || "Could not update the candidate decision.");
+              return;
+            }
             candidates = res.data.candidates || candidates;
             updateOverviewKpis(res.data.kpis);
             renderCandidates();
+          })
+          .catch(function () {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+            showToast(false, "Network error while updating the candidate decision.");
           });
       });
     });
@@ -380,6 +473,7 @@ document.addEventListener("DOMContentLoaded", function () {
     detailWrap.querySelectorAll("[data-cv-invite]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var appId = btn.getAttribute("data-cv-invite");
+        var origInviteHtml = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Inviting...';
         fetch(urlFromTemplate(cfg.inviteUrlTemplate, appId, "/dashboard/applications/" + appId + "/invite/"), {
@@ -390,21 +484,39 @@ document.addEventListener("DOMContentLoaded", function () {
             Accept: "application/json",
           },
         })
-          .then(function (r) { return r.json(); })
-          .then(function (res) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-calendar2-check"></i> Re-send Invite';
-            if (!res.ok) {
+          .then(function (r) {
+            return r.json().then(function (d) { return { httpOk: r.ok, data: d || {} }; }, function () {
+              return { httpOk: false, data: { error: "Unexpected server response (" + r.status + ")." } };
+            });
+          })
+          .then(function (out) {
+            var res = out.data;
+            if (!out.httpOk || !res.ok) {
+              // Includes HTTP 409 (candidate not eligible for an invitation).
+              btn.disabled = false;
+              btn.innerHTML = origInviteHtml;
               showToast(false, res.error || "Failed to create invitation.");
               return;
             }
+            var inv = res.invitation || {};
+            var email = inv.candidate_email || c.email || "the candidate";
             c.status = "interview_invited";
-            showToast(true, res.message + " Magic Link: " + res.invitation.invitation_url);
             renderCandidates();
+            if (inv.email_sent) {
+              showToast(true, "Invitation emailed to " + email + ".");
+            } else {
+              showInviteLinksToast(
+                "Invitation created, but the email could not be sent" +
+                  (inv.email_error ? ": " + inv.email_error : ".") +
+                  " Copy the link below and send it to the candidate manually.",
+                "warning",
+                [{ name: c.name, email: inv.candidate_email || c.email, url: inv.invitation_url }]
+              );
+            }
           })
           .catch(function () {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-calendar2-check"></i> Invite to Interview';
+            btn.innerHTML = origInviteHtml;
             showToast(false, "Network error while sending invitation.");
           });
       });
@@ -618,15 +730,44 @@ document.addEventListener("DOMContentLoaded", function () {
           Accept: "application/json",
         },
       })
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
+        .then(function (r) {
+          return r.json().then(function (d) { return { httpOk: r.ok, data: d || {} }; }, function () {
+            return { httpOk: false, data: { error: "Unexpected server response (" + r.status + ")." } };
+          });
+        })
+        .then(function (out) {
+          var res = out.data;
           bulkInviteBtn.disabled = false;
           bulkInviteBtn.innerHTML = origHtml;
-          if (!res.ok) {
+          if (!out.httpOk || !res.ok) {
             showToast(false, res.error || "Failed to send bulk invitations.");
             return;
           }
-          showToast(true, res.message || ("Sent " + res.invited_count + " invitations."));
+          var message = res.message || ("Created " + (res.invited_count || 0) + " invitation(s).");
+          var invited = Array.isArray(res.candidates) ? res.candidates : [];
+          var unsent = invited.filter(function (x) { return x && x.email_sent === false; });
+
+          // Optimistically mark invited candidates, then reload the real list from the server.
+          invited.forEach(function (x) {
+            var cand = candidates.find(function (cc) { return cc.id === x.application_id; });
+            if (cand) cand.status = "interview_invited";
+          });
+          renderCandidates();
+
+          var report = function () {
+            if (unsent.length) {
+              showInviteLinksToast(
+                message + " " + unsent.length + " email(s) could not be sent. Copy these links and send them manually:",
+                "warning",
+                unsent.map(function (x) {
+                  return { name: x.candidate_name, email: x.candidate_email, url: x.invitation_url, error: x.email_error };
+                })
+              );
+            } else {
+              showToast(true, message);
+            }
+          };
+          reloadCandidates().then(report, report);
         })
         .catch(function () {
           bulkInviteBtn.disabled = false;

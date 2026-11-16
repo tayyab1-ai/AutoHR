@@ -1,8 +1,15 @@
-from django.conf import settings
-from django.conf.urls.static import static
 from django.urls import path
 
-from portal import account_views, cv_views, form_views, google_auth_views, interview_views, profile_views, views
+from portal import (
+    account_views,
+    cv_views,
+    form_views,
+    google_auth_views,
+    interview_views,
+    media_views,
+    profile_views,
+    views,
+)
 
 urlpatterns = [
     path("", views.landing, name="landing"),
@@ -143,7 +150,7 @@ urlpatterns = [
         interview_views.hr_override_ranking_api,
         name="hr_override_ranking_api",
     ),
+    # Private uploads: HR of the owning company only (no public /media/ serving).
+    path("media/resumes/<uuid:job_id>/<str:filename>", media_views.resume_file_view, name="resume_file"),
+    path("media/interviews/<uuid:stage_id>/<str:filename>", media_views.interview_audio_view, name="interview_audio_file"),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

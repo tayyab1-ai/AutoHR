@@ -6,11 +6,9 @@ from django.conf import settings
 
 
 def _fernet() -> Fernet:
-    raw = (
-        getattr(settings, "TOKEN_ENCRYPTION_KEY", None)
-        or settings.SECRET_KEY
-        or "dev-only-secret-key-for-autohr-frontend-demo-change-me"
-    )
+    # settings.py refuses to start without TOKEN_ENCRYPTION_KEY when DEBUG is off;
+    # the SECRET_KEY fallback only applies to local development.
+    raw = getattr(settings, "TOKEN_ENCRYPTION_KEY", None) or settings.SECRET_KEY
     digest = hashlib.sha256(raw.encode("utf-8")).digest()
     key = base64.urlsafe_b64encode(digest)
     return Fernet(key)

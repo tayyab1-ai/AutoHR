@@ -13,6 +13,25 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 
+  /* Render "autohr-toast" events into the account panel's toast element (auto-hides). */
+  var toastEl = panel.querySelector("[data-account-toast]");
+  var toastTimer = null;
+  window.addEventListener("autohr-toast", function (event) {
+    if (!toastEl) return;
+    var detail = (event && event.detail) || {};
+    if (!detail.message) return;
+    var isError = !!detail.error;
+    toastEl.textContent = String(detail.message);
+    toastEl.setAttribute("role", isError ? "alert" : "status");
+    toastEl.classList.remove("d-none", "is-success", "is-error");
+    toastEl.classList.add(isError ? "is-error" : "is-success");
+    if (toastTimer) window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () {
+      toastEl.classList.add("d-none");
+      toastTimer = null;
+    }, isError ? 8000 : 4000);
+  });
+
   function applyProfile(profile) {
     if (!profile) return;
     Object.keys(profile).forEach(function (key) {

@@ -2,9 +2,9 @@
 
 A Pakistan-localized hiring workspace for HR teams. Django serves the marketing landing page, **real signup/sign-in**, and a protected HR dashboard.
 
-**Create Job** is wired to PostgreSQL (`autohr_n`): validate intake → save job → **Groq AI** job description (step 2 on the same page) → HR review/edit → save finalized copy. The next pipeline step will attach a **Google Form** link after `Apply Here:`.
+**Pipeline:** Create Job (PostgreSQL + **Groq AI** job description) → **Google Form** application link → CV scoring & shortlist → **interview invitations emailed through the HR user's Gmail** → candidate self-scheduling + consent → **3-stage AI interview** → final rankings with HR override.
 
-**Access:** There is **no demo workspace**. `/dashboard/` and all job APIs require a signed-in HR user. Public routes are `/`, `/login/`, and `/register/` only.
+**Access:** There is **no demo workspace**. `/dashboard/` and all job APIs require a signed-in HR user. Public routes are `/`, `/login/`, `/register/`, and the candidate's personal `/interview/<token>/` link.
 
 ## Current step (where the build is now)
 
@@ -14,35 +14,25 @@ A Pakistan-localized hiring workspace for HR teams. Django serves the marketing 
 | **Auth — sessions** | Done | Django session per device; list/revoke under **Account → Signed-in devices** |
 | **1 — Job intake (form A–G)** | Done | Validate on server, save `job_postings` + `job_responsibilities` |
 | **2 — AI job description (Groq)** | Done | Same-page stepper step 2; `ai_generated_jd_draft`; formatted preview + edit |
-| **2b — Apply footer** | Done | AI ends with **How to Apply** → **`Apply Here: `** (blank; URL in next phase) |
-| **3 — HR finalize description** | Done | **Post Create Google Form** → `approved_jd_content` (blocked until profile complete) |
-| **4 — Create Google Form + link** | **Next** | Generate form, insert URL after `Apply Here:` |
-| **5 — Publish to job boards** | Not started | Rozee / Indeed / LinkedIn |
-| **Profile wizard + integrations** | In progress | 7-step wizard UI + step APIs; Gmail/Workspace/Calendar OAuth; drafts until profile complete |
-| **Applications, pipeline, interviews, reports (DB-backed)** | Not started | UI shells with empty states; no fake sample rows |
+| **3 — HR finalize description** | Done | `approved_jd_content` |
+| **4 — Create Google Form + link** | Done | Form created via Google Forms API; URL inserted after `Apply Here:` |
+| **4b — Form response sync** | Done | **Automatic** background sync every `FORM_SYNC_INTERVAL_SECONDS` (default 300) + manual Sync button |
+| **5 — CV scoring & shortlist** | Done | Groq scoring with per-job weights; manual Shortlist/Reject |
+| **6 — Interview invitations** | Done | Magic link **emailed via Gmail API** (Profile → Integrations → Gmail); copyable link shown if email fails |
+| **7 — Scheduling + consent gate** | Done | Candidate picks an offered slot; mandatory recording + AI consent |
+| **8 — AI interview (3 stages)** | Done | Room opens 15 min before the slot; one answer per question; stages in order |
+| **9 — Final rankings** | Done | Interviews panel → **Final Rankings** (CV 40% + interview 60%), HR override verdict + notes |
+| **Publish to job boards** | Not started | Rozee / Indeed / LinkedIn |
+| **Profile wizard + integrations** | In progress | 7-step wizard UI + step APIs; Gmail/Workspace/Calendar OAuth |
 
-**You are here:** step **4** (Google Form + link), then job boards and profile/integrations wizard.
+## Interview integrity rules
 
-## What is finished
-
-| Area | Status |
-| --- | --- |
-| Marketing landing page (public) | Done |
-| **Sign up / Sign in** — Google OAuth only | Done |
-| **Multi-device sessions** — track & revoke | Done |
-| **Protected dashboard** — login required; no anonymous demo actor | Done |
-| HR dashboard shell (eight panels on one page) | Done |
-| Visual system (type, color, layout, motion) | Done |
-| Repo layout (`backend/`, `frontend/`, `database/`, root `.env`) | Done |
-| PostgreSQL schema (`autohr_n`) | Done |
-| **Create Job** — intake, validation, save to DB | Done |
-| **Jobs** list — real rows for signed-in user’s company only | Done |
-| **Step 2 — AI JD** (Groq, preview/edit) | Done |
-| **Post Create Google Form** — save finalized JD to DB | Done (form URL not created yet) |
-| **Profile wizard** (steps 1–7, OAuth connect buttons, draft jobs) | In progress |
-| Google Form automation + Apply link injection | Not started |
-| Job-board publishing | Not started |
-| Applications / pipeline / interviews / reports from DB | Not started |
+- Invitations: only **shortlisted / invited / scheduled (not started)** candidates can be (re)invited. Re-sending keeps the same active link; once the candidate has started, re-inviting is refused.
+- Scheduling: only slots the portal offers (office hours, `TIME_ZONE` = Asia/Karachi) are accepted; no rescheduling after the interview starts.
+- Room: requires a valid, unexpired link + consent; opens `INTERVIEW_ROOM_EARLY_ACCESS_MINUTES` (15) before the slot; a completed interview cannot be reopened.
+- Answers: one submission per question; stages must be completed in order and every question answered. Unanswered questions score **0**.
+- Candidates are stored **per company** (`candidates.company_id`), so one company's edits never show up in another's dashboard.
+- CVs and interview recordings under `/media/` are served **only to signed-in HR of the owning company**.
 
 ## Authentication
 
@@ -202,19 +192,23 @@ AutoHR-N/
     └── run-dev.ps1
 ```
 
-Settings: **`backend/config/settings.py`**. Secrets: **`.env`** at repo root (`POSTGRES_*`, `GROQ_*`, `DJANGO_SECRET_KEY`, Gmail SMTP).
+Settings: **`backend/config/settings.py`**. Secrets: **`.env`** at repo root (`POSTGRES_*`, `GROQ_*`, `DJANGO_SECRET_KEY`, `GOOGLE_OAUTH_*`, `TOKEN_ENCRYPTION_KEY`). Candidate emails go through the **Gmail API** (no SMTP).
 
 ## Run it locally
 
-Requirements: Python 3.11+, PostgreSQL with **`autohr_n`** schema, **Groq API key**, **Gmail App Password** for OTP, venv at **`backend/.venv`**.
+Requirements: Python 3.11+, PostgreSQL with **`autohr_n`** schema, **Groq API key**, a Google OAuth client, venv at **`backend/.venv`**.
 
 ```powershell
 cd backend
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python manage.py migrate
+python manage.py ensure_profile_schema   # applies database/migrations/*.sql (idempotent)
 python manage.py runserver
 ```
+
+Run the verification suites from the repo root, for example `backend\.venv\Scripts\python.exe scripts\verify_audit_fixes.py`
+(also `scripts\verify_interview_sprint1.py`, `scripts\verify_interview_sprint2.py`, `scripts\verify_google_form_sync.py`, `backend\scripts\verify_cv_scoring.py`).
 
 Or from repo root: **`.\scripts\run-dev.ps1`**
 
@@ -256,7 +250,17 @@ GOOGLE_OAUTH_CLIENT_SECRET=GOCSPX-...
 GOOGLE_AUTH_REDIRECT_URI=http://127.0.0.1:8000/auth/google/callback/
 GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:8000/integrations/google/callback/
 TOKEN_ENCRYPTION_KEY=...   # Fernet key for integration tokens
+DJANGO_DEBUG=true          # set false on a real server (then SECRET_KEY + TOKEN_ENCRYPTION_KEY are required)
+DJANGO_ALLOWED_HOSTS=      # required when DJANGO_DEBUG=false
+FORM_SYNC_INTERVAL_SECONDS=300
+GROQ_MAX_TOKENS=           # optional cap if your Groq plan limits output tokens per minute
 ```
+
+### Deploying (DJANGO_DEBUG=false)
+
+- HTTPS-only cookies, HSTS and HTTPS redirect switch on automatically.
+- Set `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`; set `TRUST_X_FORWARDED_FOR` / `DJANGO_BEHIND_HTTPS_PROXY` only behind your own proxy.
+- With several web processes, set `FORM_SYNC_INTERVAL_SECONDS=0` and run one worker: `python manage.py sync_google_form_responses --interval 300`.
 
 `settings.py` loads `.env` with **`override=True`**. Restart **`runserver`** after edits.
 
@@ -267,14 +271,14 @@ TOKEN_ENCRYPTION_KEY=...   # Fernet key for integration tokens
 - **`frontend/static/js/auth.js`** — Google sign-in button state
 - **`frontend/static/js/create_job.js`** — Create Job stepper + Groq flow
 - **`frontend/static/js/dashboard.js`** — panel switching, sidebar
+- **`frontend/static/js/cv_scoring.js`** — CV scoring, shortlist, invitations
+- **`frontend/static/js/leaderboard.js`** — Final Rankings + HR override
 - **`frontend/static/css/theme.css`**, **`dashboard.css`**, **`auth.css`**
 
 ## What is not connected yet
 
-- **Profile wizard** — full company + job-board credentials before first job ([spec](docs/auth_onboarding_integrations.md))
-- **Google Form** — create form, inject URL after **`Apply Here:`**
 - **Job boards** — Rozee.pk, Indeed Pakistan, LinkedIn
-- **Applications, pipeline, interviews, reports** — UI only; empty until backed by PostgreSQL
-- **Whisper / AI interviews** — mentioned on landing; not implemented
+- **Profile wizard** — remaining polish ([spec](docs/auth_onboarding_integrations.md))
+- **Reports panel** — analytics not built yet
 
 Extend **`database/schema.sql`** and **`database/ARCHITECTURE.md`** when new features need tables or columns.

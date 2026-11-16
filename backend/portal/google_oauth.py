@@ -1,10 +1,11 @@
+import logging
 import os
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 
 from django.utils import timezone as django_tz
 
-os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
-os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
+# OAUTHLIB_* transport flags are set in config/settings.py (insecure HTTP only when DEBUG).
 
 from django.conf import settings
 from django.utils import timezone
@@ -13,6 +14,8 @@ from google.oauth2.credentials import Credentials
 
 from .encryption import decrypt_text, encrypt_text
 from .profile_models import IntegrationConnection, OAuthCredential
+
+_logger = logging.getLogger(__name__)
 
 AUTH_SCOPES = [
     "openid",
@@ -194,7 +197,7 @@ def save_credentials(user_id, flow_name: str, creds: Credentials, email: str = "
     provider = provider_for_flow(flow_name)
     expires = creds.expiry
     if expires and timezone.is_naive(expires):
-        expires = timezone.make_aware(expires)
+        expires = timezone.make_aware(expires, dt_timezone.utc)
 
     OAuthCredential.objects.update_or_create(
         user_id=user_id,
@@ -229,7 +232,7 @@ def _scopes_for_provider(provider: str) -> list[str]:
 def _persist_refreshed_tokens(user_id, provider: str, creds: Credentials) -> None:
     expires = creds.expiry
     if expires and timezone.is_naive(expires):
-        expires = timezone.make_aware(expires)
+        expires = timezone.make_aware(expires, dt_timezone.utc)
     OAuthCredential.objects.filter(user_id=user_id, provider=provider).update(
         access_token_enc=encrypt_text(creds.token or ""),
         refresh_token_enc=encrypt_text(creds.refresh_token or ""),
@@ -255,7 +258,11 @@ def get_credentials(user_id, provider: str) -> Credentials | None:
         scopes=scope_list,
     )
     if row.token_expires_at:
-        creds.expiry = row.token_expires_at
+        # google-auth compares expiry against a naive UTC "now", so it must be naive UTC.
+        expiry = row.token_expires_at
+        if timezone.is_aware(expiry):
+            expiry = timezone.make_naive(expiry, dt_timezone.utc)
+        creds.expiry = expiry
 
     stale = False
     if row.token_expires_at and row.token_expires_at <= django_tz.now() + timedelta(minutes=3):
@@ -267,7 +274,14 @@ def get_credentials(user_id, provider: str) -> Credentials | None:
         if (stale or not creds.valid) and creds.refresh_token:
             creds.refresh(Request())
             _persist_refreshed_tokens(user_id, provider, creds)
-    except Exception:
+    except Exception as exc:
+        # Typically "invalid_grant: Token has been expired or revoked" -> HR must reconnect Google.
+        _logger.warning(
+            "Google token refresh failed for user %s provider %s (reconnect in Profile -> Integrations): %s",
+            user_id,
+            provider,
+            exc,
+        )
         if stale:
             return None
     return creds

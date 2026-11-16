@@ -16,14 +16,13 @@ from typing import Any
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
 from .cv_scoring_service import score_candidate_cv_for_job
 from .form_catalog import FORM_SECTIONS
 from .google_oauth import get_credentials
 from .models import Application, JobPosting, User
-from .profile_models import JobApplicationFormConfig, OAuthCredential
+from .profile_models import JobApplicationFormConfig
 
 _logger = logging.getLogger(__name__)
 
@@ -49,13 +48,7 @@ def resolve_google_workspace_credentials(job: JobPosting, user_id=None):
         if creds and creds.token:
             return creds
 
-    # 4. Fallback to any active credentials in system
-    active_row = OAuthCredential.objects.filter(provider="google_workspace").first()
-    if active_row:
-        creds = get_credentials(active_row.user_id, "google_workspace")
-        if creds and creds.token:
-            return creds
-
+    # Never fall back to another company's Google account.
     return None
 
 
@@ -285,7 +278,7 @@ def sync_job_form_responses(
     try:
         forms_service = build("forms", "v1", credentials=creds, cache_discovery=False)
         form_meta = forms_service.forms().get(formId=form_id).execute()
-    except HttpError as exc:
+    except Exception as exc:  # HttpError, network or token-refresh failures
         _logger.warning("Forms API get failed for form %s: %s", form_id, exc)
         return {
             "ok": False,
@@ -314,7 +307,7 @@ def sync_job_form_responses(
 
     try:
         responses_data = forms_service.forms().responses().list(formId=form_id).execute()
-    except HttpError as exc:
+    except Exception as exc:  # HttpError, network or token-refresh failures
         _logger.warning("Forms API responses.list failed for form %s: %s", form_id, exc)
         return {
             "ok": False,
@@ -453,7 +446,18 @@ def sync_all_active_forms(*, company=None, user_id=None) -> dict[str, Any]:
 
     jobs = JobPosting.objects.filter(id__in=job_ids)
     for job in jobs:
-        res = sync_job_form_responses(job, user_id=user_id)
+        try:
+            res = sync_job_form_responses(job, user_id=user_id)
+        except Exception as exc:  # one bad job must not stop the others
+            _logger.exception("Form sync failed for job %s", job.id)
+            res = {
+                "ok": False,
+                "job_id": str(job.id),
+                "job_title": job.title,
+                "synced_count": 0,
+                "message": f"Sync failed: {exc}",
+                "errors": [str(exc)],
+            }
         job_results.append(res)
         total_synced += res.get("synced_count", 0)
 

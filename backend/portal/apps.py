@@ -52,3 +52,7 @@ class PortalConfig(AppConfig):
 
         auth._get_user_session_key = _get_hr_user_session_key
         auth._aget_user_session_key = _aget_hr_user_session_key
+
+        from .background_sync import start_background_form_sync
+
+        start_background_form_sync()

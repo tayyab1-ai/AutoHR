@@ -418,9 +418,11 @@ def score_candidate_cv_for_job(
     now = timezone.now()
     resume_url = _save_resume_blob(job.id, orig_filename, raw_bytes)
 
-    candidate = Candidate.objects.filter(email=resolved_email).first()
+    # Candidate records are per company, so another company's edits never leak into this one.
+    candidate = Candidate.objects.filter(company_id=job.company_id, email__iexact=resolved_email).first()
     if candidate is None:
         candidate = Candidate.objects.create(
+            company_id=job.company_id,
             email=resolved_email,
             full_name=resolved_name,
             phone=resolved_phone,

@@ -195,6 +195,11 @@ def call_groq_chat(
     if not api_key:
         raise RuntimeError("GROQ_API_KEY is not set in the repo-root .env file")
 
+    # Optional account-wide cap (e.g. free-tier models limited to ~1000 output tokens/min).
+    cap = os.environ.get("GROQ_MAX_TOKENS", "").strip()
+    if cap.isdigit() and int(cap) > 0:
+        max_tokens = min(max_tokens, int(cap))
+
     kwargs = {
         "model": model,
         "messages": [
@@ -216,6 +221,12 @@ def call_groq_chat(
             raise RuntimeError(
                 "Groq rejected the API key. Open console.groq.com, create a new key, "
                 "and update GROQ_API_KEY in .env at the repo root, then restart runserver."
+            ) from exc
+        if "rate_limit_exceeded" in msg or "Request too large" in msg:
+            raise RuntimeError(
+                f"Groq refused the request for model '{model}' (rate/token limit on your Groq plan). "
+                "Use a model with higher limits in GROQ_MODEL, set GROQ_MAX_TOKENS lower, or upgrade the Groq plan. "
+                f"Details: {msg[:300]}"
             ) from exc
         raise RuntimeError(f"Groq API error: {msg[:500]}") from exc
 

@@ -154,7 +154,7 @@ def get_or_generate_stage_questions(stage: InterviewStage) -> list[InterviewQues
 
     question_texts = []
     try:
-        raw_res = call_groq_chat(system_prompt, user_prompt, json_mode=True, temperature=0.3)
+        raw_res = call_groq_chat(system_prompt, user_prompt, json_mode=True, temperature=0.3, max_tokens=900)
         data = json.loads(raw_res)
         if isinstance(data.get("questions"), list) and data["questions"]:
             question_texts = [str(q).strip() for q in data["questions"] if str(q).strip()]
@@ -215,7 +215,16 @@ def evaluate_question_answer(
             clean_answer = transcribe_candidate_audio(audio_bytes, audio_filename)
 
     if not clean_answer:
-        clean_answer = "[No audible response or transcript provided.]"
+        # Nothing to evaluate: record a zero score instead of asking the AI (or guessing).
+        qa.transcript_text = "[No audible response or transcript provided.]"
+        qa.duration_seconds = max(0, int(duration_seconds or 0))
+        if audio_url:
+            qa.audio_clip_url = audio_url
+        qa.communication_score = qa.confidence_score = qa.technical_score = Decimal("0.00")
+        qa.relevance_score = qa.problem_solving_score = Decimal("0.00")
+        qa.ai_rationale = "No answer was given for this question."
+        qa.save()
+        return qa
 
     system_prompt = (
         "You are an objective AI Interview Evaluator. Evaluate the candidate's response to the interview question. "
@@ -245,17 +254,18 @@ def evaluate_question_answer(
         f"Answer Duration: {duration_seconds} seconds.\n"
     )
 
+    # Neutral fallback used only if the AI evaluation is unavailable; flagged for HR review.
     scores = {
-        "communication_score": Decimal("7.00"),
-        "confidence_score": Decimal("7.00"),
-        "technical_score": Decimal("7.00"),
-        "relevance_score": Decimal("7.00"),
-        "problem_solving_score": Decimal("7.00"),
-        "ai_rationale": "Clear and satisfactory response.",
+        "communication_score": Decimal("5.00"),
+        "confidence_score": Decimal("5.00"),
+        "technical_score": Decimal("5.00"),
+        "relevance_score": Decimal("5.00"),
+        "problem_solving_score": Decimal("5.00"),
+        "ai_rationale": "AI evaluation was unavailable; neutral score assigned. Please review this answer manually.",
     }
 
     try:
-        raw_res = call_groq_chat(system_prompt, user_prompt, json_mode=True, temperature=0.2)
+        raw_res = call_groq_chat(system_prompt, user_prompt, json_mode=True, temperature=0.2, max_tokens=700)
         payload = json.loads(raw_res)
         scores["communication_score"] = _quantize_rubric(payload.get("communication_score"))
         scores["confidence_score"] = _quantize_rubric(payload.get("confidence_score"))
@@ -272,7 +282,9 @@ def evaluate_question_answer(
             scores["technical_score"] = Decimal("3.00")
             scores["relevance_score"] = Decimal("3.00")
             scores["problem_solving_score"] = Decimal("3.00")
-            scores["ai_rationale"] = "Response was too brief or incomplete to demonstrate required depth."
+            scores["ai_rationale"] = (
+                "AI evaluation was unavailable and the response was very brief. Please review this answer manually."
+            )
 
     qa.transcript_text = clean_answer
     qa.duration_seconds = max(0, int(duration_seconds or 0))
@@ -346,23 +358,20 @@ def complete_stage_and_progress(stage: InterviewStage) -> dict[str, Any]:
 def evaluate_full_interview(interview: Interview) -> InterviewEvaluation:
     """Roll up all 5-factor question answers into the overall interview evaluation."""
     now = timezone.now()
-    answers = list(
-        InterviewQuestionAnswer.objects.filter(
-            stage__interview=interview,
-            communication_score__isnull=False,
-        )
-    )
+    # Every generated question counts; an unanswered question scores 0 (skipping is never rewarded).
+    answers = list(InterviewQuestionAnswer.objects.filter(stage__interview=interview))
 
-    if not answers:
-        # Default neutral scores if no answers recorded
-        comm_avg = conf_avg = tech_avg = rel_avg = prob_avg = Decimal("5.00")
-    else:
-        n = Decimal(str(len(answers)))
-        comm_avg = _quantize_rubric(sum([Decimal(str(a.communication_score)) for a in answers]) / n)
-        conf_avg = _quantize_rubric(sum([Decimal(str(a.confidence_score)) for a in answers]) / n)
-        tech_avg = _quantize_rubric(sum([Decimal(str(a.technical_score)) for a in answers]) / n)
-        rel_avg = _quantize_rubric(sum([Decimal(str(a.relevance_score)) for a in answers]) / n)
-        prob_avg = _quantize_rubric(sum([Decimal(str(a.problem_solving_score)) for a in answers]) / n)
+    def _avg(field: str) -> Decimal:
+        if not answers:
+            return Decimal("0.00")
+        total = sum(Decimal(str(getattr(a, field) or 0)) for a in answers)
+        return _quantize_rubric(total / Decimal(len(answers)))
+
+    comm_avg = _avg("communication_score")
+    conf_avg = _avg("confidence_score")
+    tech_avg = _avg("technical_score")
+    rel_avg = _avg("relevance_score")
+    prob_avg = _avg("problem_solving_score")
 
     # Composite interview score out of 100: sum of 5 dimension averages * 2
     raw_composite = (comm_avg + conf_avg + tech_avg + rel_avg + prob_avg) * Decimal("2.0")
@@ -397,7 +406,7 @@ def evaluate_full_interview(interview: Interview) -> InterviewEvaluation:
     exec_summary = f"{candidate.full_name} completed the 3-stage interview with an overall score of {composite_score}%."
 
     try:
-        raw_res = call_groq_chat(system_prompt, user_prompt, json_mode=True, temperature=0.3)
+        raw_res = call_groq_chat(system_prompt, user_prompt, json_mode=True, temperature=0.3, max_tokens=900)
         data = json.loads(raw_res)
         if isinstance(data.get("strengths"), list) and data["strengths"]:
             strengths = [str(s).strip() for s in data["strengths"] if str(s).strip()][:5]

@@ -5,6 +5,7 @@ import time
 import uuid
 
 from django.core.management.base import BaseCommand
+from django.db import close_old_connections
 from django.utils import timezone
 
 from portal.google_form_sync_service import sync_all_active_forms, sync_job_form_responses
@@ -86,7 +87,12 @@ class Command(BaseCommand):
         self.stdout.write("Press Ctrl+C to stop.")
         try:
             while True:
-                _run_sync_cycle()
+                try:
+                    _run_sync_cycle()
+                except Exception as exc:  # keep the worker alive
+                    self.stderr.write(self.style.ERROR(f"Sync cycle failed: {exc}"))
+                finally:
+                    close_old_connections()
                 time.sleep(interval)
         except KeyboardInterrupt:
             self.stdout.write(self.style.SUCCESS("\nSync worker stopped cleanly."))

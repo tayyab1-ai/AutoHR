@@ -265,6 +265,21 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   var magicToken = "{{ magic_token }}";
+  var csrfToken = "{{ csrf_token }}";
+  var resumeStageOrder = {{ resume_stage_order|default:1 }};
+
+  function readJson(r) {
+    return r.json().catch(function () {
+      return { ok: false, error: "Unexpected server response (HTTP " + r.status + ")." };
+    });
+  }
+
+  function showRoomError(message) {
+    if (!feedbackAlert) return;
+    feedbackAlert.innerHTML = '<strong>Problem:</strong> ' + String(message || "Something went wrong.")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    feedbackAlert.classList.remove("d-none");
+  }
   var videoElem = document.getElementById("candidate-camera");
   var placeholder = document.getElementById("camera-placeholder");
   var liveBadge = document.getElementById("live-rec-badge");
@@ -350,14 +365,23 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("current-question-text").textContent = "Loading questions...";
 
     fetch("/interview/" + magicToken + "/stage/" + stageOrder + "/questions/")
-      .then(function (r) { return r.json(); })
+      .then(readJson)
       .then(function (res) {
         if (!res.ok || !res.questions || !res.questions.length) {
-          document.getElementById("current-question-text").textContent = "No questions found for this stage.";
+          document.getElementById("current-question-text").textContent =
+            res.error || "No questions found for this stage.";
           return;
         }
         currentQuestions = res.questions;
         currentQuestionIdx = 0;
+        // Resume after a reload: skip questions that were already answered.
+        while (currentQuestionIdx < currentQuestions.length && currentQuestions[currentQuestionIdx].answered) {
+          currentQuestionIdx++;
+        }
+        if (currentQuestionIdx >= currentQuestions.length) {
+          completeCurrentStage();
+          return;
+        }
         showQuestion(currentQuestionIdx);
       })
       .catch(function () {
@@ -460,12 +484,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
       fetch("/interview/" + magicToken + "/question/" + currentQ.id + "/answer/", {
         method: "POST",
+        headers: { "X-CSRFToken": csrfToken },
         body: fd
       })
-      .then(function (r) { return r.json(); })
+      .then(readJson)
       .then(function (res) {
         btnNext.disabled = false;
         btnNext.innerHTML = 'Submit &amp; Next Question <i class="bi bi-arrow-right ms-1"></i>';
+
+        if (!res.ok) {
+          if (res.already_answered) {
+            // Saved earlier (e.g. before a reload) - just move on.
+            currentQuestionIdx++;
+            if (currentQuestionIdx < currentQuestions.length) showQuestion(currentQuestionIdx);
+            else completeCurrentStage();
+            return;
+          }
+          showRoomError((res.error || "Your answer could not be saved.") + " Please try submitting again.");
+          return;
+        }
 
         if (res.ok && res.question && res.question.scores) {
           var sc = res.question.scores;
@@ -488,13 +525,8 @@ document.addEventListener("DOMContentLoaded", function () {
       .catch(function () {
         btnNext.disabled = false;
         btnNext.innerHTML = 'Submit &amp; Next Question <i class="bi bi-arrow-right ms-1"></i>';
-        // Advance anyway on network hiccup
-        currentQuestionIdx++;
-        if (currentQuestionIdx < currentQuestions.length) {
-          showQuestion(currentQuestionIdx);
-        } else {
-          completeCurrentStage();
-        }
+        // Do NOT skip the question: the answer was not saved.
+        showRoomError("Network error - your answer was not saved. Check your connection and submit again.");
       });
     });
   }
@@ -502,10 +534,14 @@ document.addEventListener("DOMContentLoaded", function () {
   function completeCurrentStage() {
     fetch("/interview/" + magicToken + "/stage/" + currentStageOrder + "/complete/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken }
     })
-    .then(function (r) { return r.json(); })
+    .then(readJson)
     .then(function (res) {
+      if (!res.ok) {
+        showRoomError(res.error || "This stage could not be completed.");
+        return;
+      }
       if (res.interview_completed) {
         // Complete interview view
         for (var i = 1; i <= 3; i++) {
@@ -528,9 +564,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     })
     .catch(function () {
-      if (currentStageOrder < 3) {
-        loadStage(currentStageOrder + 1);
-      }
+      showRoomError("Network error while finishing this stage. Please reload the page to continue.");
     });
   }
 
@@ -552,8 +586,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Initial stage load
-  loadStage(1);
+  // Initial stage load (resumes where the candidate left off)
+  loadStage(resumeStageOrder);
 });
 </script>
 {% endblock %}
