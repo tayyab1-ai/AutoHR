@@ -272,7 +272,7 @@ def sync_job_form_responses(
             "job_id": str(job.id),
             "job_title": job.title,
             "synced_count": 0,
-            "message": "Google Workspace is not connected. Reconnect Google in Profile -> Integrations.",
+            "message": "Google Workspace is not connected. Reconnect Google in Account -> Integrations.",
         }
 
     try:

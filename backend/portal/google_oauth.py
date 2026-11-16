@@ -277,7 +277,7 @@ def get_credentials(user_id, provider: str) -> Credentials | None:
     except Exception as exc:
         # Typically "invalid_grant: Token has been expired or revoked" -> HR must reconnect Google.
         _logger.warning(
-            "Google token refresh failed for user %s provider %s (reconnect in Profile -> Integrations): %s",
+            "Google token refresh failed for user %s provider %s (reconnect in Account -> Integrations): %s",
             user_id,
             provider,
             exc,

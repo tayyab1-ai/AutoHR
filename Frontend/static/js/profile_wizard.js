@@ -298,7 +298,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
   var params = new URLSearchParams(window.location.search);
   var integrationParam = params.get("integration");
-  if (integrationParam === "connected") {
+  if (integrationParam && params.get("flow") === "gmail") {
+    // Gmail is managed from Account -> Integrations, not the setup wizard.
+    var accountNav = document.querySelector('[data-panel-target="account"]');
+    if (accountNav) accountNav.click();
+    var gmailMessages = {
+      connected: ["Gmail connected. Interview invitations will now be emailed to candidates.", false],
+      denied: ["Gmail authorization was cancelled. Click Connect Gmail to try again.", true],
+      oauth_not_configured: ["Google OAuth is not configured. Add GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET to .env.", true],
+    };
+    var gm = gmailMessages[integrationParam] || [
+      "Gmail connection failed. Make sure the Gmail API is enabled in Google Cloud and try again.",
+      true,
+    ];
+    window.setTimeout(function () {
+      window.dispatchEvent(new CustomEvent("autohr-toast", { detail: { message: gm[0], error: gm[1] } }));
+      var row = document.querySelector('[data-integration-row="gmail"]');
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 400);
+    clearIntegrationQuery();
+  } else if (integrationParam === "connected") {
     var flowStep =
       params.get("flow") === "google_workspace" ? 4 : params.get("flow") === "google_calendar" ? 5 : 3;
     openWizard(flowStep);

@@ -1,7 +1,7 @@
 """Outbound email delivery through the HR user's connected Gmail account (Gmail API).
 
 AutoHR has no SMTP server. Candidate emails are sent with the ``gmail.send`` scope that
-HR grants under Profile -> Integrations -> Gmail. Every attempt is recorded on the
+HR grants under Account -> Integrations -> Gmail. Every attempt is recorded on the
 ``EmailNotification`` row (status ``sent`` / ``failed`` + error message).
 """
 
@@ -20,7 +20,7 @@ from .models import EmailNotification, User
 _logger = logging.getLogger(__name__)
 
 GMAIL_NOT_CONNECTED = (
-    "Gmail is not connected for your company. Connect Gmail in Profile -> Integrations "
+    "Gmail is not connected for your company. Connect Gmail in Account -> Integrations "
     "to email candidates automatically, or send the invitation link manually."
 )
 

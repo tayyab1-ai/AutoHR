@@ -180,6 +180,15 @@ document.addEventListener("DOMContentLoaded", function () {
   var intStatus = panel.querySelector("[data-int-status-label]");
   var intCalStatus = panel.querySelector("[data-int-cal-status-label]");
   var intDisconnect = panel.querySelector("[data-int-disconnect]");
+  var intGmailStatus = panel.querySelector("[data-int-gmail-status-label]");
+  var intGmailConnect = panel.querySelector("[data-int-gmail-connect]");
+  var intGmailDisconnect = panel.querySelector("[data-int-gmail-disconnect]");
+
+  function escapeHtml(value) {
+    return String(value || "").replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
 
   function renderIntegrations(integrations) {
     if (!integrations) return;
@@ -196,6 +205,25 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (intDisconnect) {
       intDisconnect.classList.toggle("d-none", ws.status !== "connected");
+    }
+    var gm = integrations.gmail || {};
+    if (intGmailStatus) {
+      if (gm.status === "connected") {
+        intGmailStatus.innerHTML =
+          "Connected" +
+          (gm.email ? " as <strong>" + escapeHtml(gm.email) + "</strong>" : "") +
+          (gm.token_usable
+            ? " · invitations are emailed from this address"
+            : " · <span class=\"text-danger\">token needs reconnect</span>");
+      } else {
+        intGmailStatus.textContent = "Not connected — required to email interview invitations to candidates.";
+      }
+    }
+    if (intGmailConnect) {
+      intGmailConnect.textContent = gm.status === "connected" ? "Reconnect" : "Connect Gmail";
+    }
+    if (intGmailDisconnect) {
+      intGmailDisconnect.classList.toggle("d-none", gm.status !== "connected");
     }
     var cal = integrations.google_calendar || {};
     if (intCalStatus) {
@@ -242,6 +270,33 @@ document.addEventListener("DOMContentLoaded", function () {
             renderIntegrations(data.integrations);
             showToast(data.message || "Disconnected.", false);
           } else showToast("Could not disconnect.", true);
+        });
+    });
+  }
+
+  if (intGmailDisconnect) {
+    intGmailDisconnect.addEventListener("click", function () {
+      if (!window.confirm("Disconnect Gmail? Interview invitations will no longer be emailed automatically.")) return;
+      fetch(accountCfg.disconnectIntegrationUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrf(),
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ provider: "gmail" }),
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (data) {
+          if (data.ok) {
+            renderIntegrations(data.integrations);
+            showToast("Gmail disconnected.", false);
+          } else showToast("Could not disconnect Gmail.", true);
+        })
+        .catch(function () {
+          showToast("Network error while disconnecting Gmail.", true);
         });
     });
   }

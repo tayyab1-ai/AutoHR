@@ -18,7 +18,7 @@ A Pakistan-localized hiring workspace for HR teams. Django serves the marketing 
 | **4 — Create Google Form + link** | Done | Form created via Google Forms API; URL inserted after `Apply Here:` |
 | **4b — Form response sync** | Done | **Automatic** background sync every `FORM_SYNC_INTERVAL_SECONDS` (default 300) + manual Sync button |
 | **5 — CV scoring & shortlist** | Done | Groq scoring with per-job weights; manual Shortlist/Reject |
-| **6 — Interview invitations** | Done | Magic link **emailed via Gmail API** (Profile → Integrations → Gmail); copyable link shown if email fails |
+| **6 — Interview invitations** | Done | Magic link **emailed via Gmail API** (Account → Integrations → **Connect Gmail**); copyable link shown if email fails |
 | **7 — Scheduling + consent gate** | Done | Candidate picks an offered slot; mandatory recording + AI consent |
 | **8 — AI interview (3 stages)** | Done | Room opens 15 min before the slot; one answer per question; stages in order |
 | **9 — Final rankings** | Done | Interviews panel → **Final Rankings** (CV 40% + interview 60%), HR override verdict + notes |

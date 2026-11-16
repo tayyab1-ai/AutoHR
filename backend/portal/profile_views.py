@@ -85,7 +85,7 @@ def google_oauth_start(request):
     try:
         url, code_verifier = authorization_url(flow_name, state)
     except RuntimeError:
-        return redirect(reverse("dashboard") + "?integration=oauth_not_configured")
+        return redirect(reverse("dashboard") + "?integration=oauth_not_configured&flow=" + flow_name)
     request.session["google_oauth_code_verifier"] = code_verifier
     request.session.modified = True
     request.session.save()
@@ -100,15 +100,15 @@ def google_oauth_callback(request):
     user_id = request.session.get("google_oauth_user_id")
     db_user = request.user.db_user
     if not state or request.GET.get("state") != state:
-        return redirect(reverse("dashboard") + "?integration=failed")
+        return redirect(reverse("dashboard") + "?integration=failed&flow=" + flow_name)
     if request.GET.get("error"):
-        return redirect(reverse("dashboard") + "?integration=denied")
+        return redirect(reverse("dashboard") + "?integration=denied&flow=" + flow_name)
 
     code = request.GET.get("code")
     if not code or not user_id:
-        return redirect(reverse("dashboard") + "?integration=failed")
+        return redirect(reverse("dashboard") + "?integration=failed&flow=" + flow_name)
     if str(db_user.id) != str(user_id):
-        return redirect(reverse("dashboard") + "?integration=failed")
+        return redirect(reverse("dashboard") + "?integration=failed&flow=" + flow_name)
 
     code_verifier = request.session.get("google_oauth_code_verifier")
     try:
@@ -129,7 +129,7 @@ def google_oauth_callback(request):
                 {"oauth_connected": True, "provider": provider_for_flow(flow_name)},
             )
     except Exception:
-        return redirect(reverse("dashboard") + "?integration=failed")
+        return redirect(reverse("dashboard") + "?integration=failed&flow=" + flow_name)
 
     for key in ("google_oauth_state", "google_oauth_flow", "google_oauth_user_id", "google_oauth_code_verifier"):
         request.session.pop(key, None)
