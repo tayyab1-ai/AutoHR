@@ -4,7 +4,7 @@
 from django.utils.html import escape
 
 from .cv_scoring_service import applications_for_company
-from .models import InterviewSchedule
+from .hr_interview_service import interview_rows_for_company, interview_summary
 
 
 def build_hr_profile(db_user, company) -> dict:
@@ -226,41 +226,22 @@ def workspace_shell_for_company(company, *, jobs: list[dict]) -> dict:
             }
         )
 
-    # Real scheduled interviews from DB
-    interviews_qs = (
-        InterviewSchedule.objects.filter(application__job_posting__company=company)
-        .select_related("application__candidate", "application__job_posting")
-        .order_by("-scheduled_start")[:25]
-    )
-    interview_rows = []
-    for s in interviews_qs:
-        candidate_name = s.application.candidate.full_name
-        role = s.application.job_posting.title
-        iv = s.interviews.first()
-        status_label = "Scheduled"
-        if iv:
-            if iv.status == "completed":
-                status_label = "Completed"
-            elif iv.status == "in_progress":
-                status_label = "In Progress"
-
-        stage_name = "Stage 1: Screening"
-        if iv:
-            st = iv.stages.filter(status__in=["in_progress", "completed"]).order_by("-sequence_order").first()
-            if st:
-                stage_name = f"Stage {st.sequence_order}: {st.stage_type.title()}"
-
-        interview_rows.append(
-            {
-                "candidate": candidate_name,
-                "role": role,
-                "stage": stage_name,
-                "date": s.scheduled_start.strftime("%d %b %Y"),
-                "time": s.scheduled_start.strftime("%I:%M %p"),
-                "status": "completed" if status_label == "Completed" else "scheduled",
-            }
-        )
+    # Real interviews from DB (live, upcoming, completed) in local time.
+    interview_rows = interview_rows_for_company(company)
     shell["interviews"] = interview_rows
+    summary = interview_summary(interview_rows)
+    shell["interview_summary"] = summary
+    for kpi in shell.get("kpis", []):
+        if kpi.get("label") == "Interviews Scheduled":
+            kpi["label"] = "Interviews"
+            kpi["value"] = str(summary["live"] + summary["upcoming"])
+            if summary["live"]:
+                kpi["trend"] = f"{summary['live']} live now"
+            elif summary["upcoming"]:
+                kpi["trend"] = f"{summary['upcoming']} upcoming"
+            else:
+                kpi["trend"] = f"{summary['completed']} completed" if summary["completed"] else "None scheduled yet"
+            kpi["hint"] = "Live and upcoming AI interviews. Open the Interviews tab for per-question evaluations."
 
     shell["activity"] = activity
     shell["candidates"] = candidates

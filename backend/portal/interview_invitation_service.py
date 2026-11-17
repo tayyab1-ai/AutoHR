@@ -223,8 +223,19 @@ def generate_available_slots(days_ahead: int = 5) -> list[dict[str, Any]]:
     return slots
 
 
-def validate_requested_slot(start_dt: datetime, *, days_ahead: int = 5) -> tuple[datetime, datetime]:
-    """Accept only a slot that the portal actually offered; returns (start, end)."""
+START_NOW = "now"
+
+
+def validate_requested_slot(start_dt, *, days_ahead: int = 5) -> tuple[datetime, datetime]:
+    """Accept only a slot that the portal actually offered; returns (start, end).
+
+    ``start_dt == "now"`` books an immediate interview when INTERVIEW_ALLOW_START_NOW is on.
+    """
+    if start_dt == START_NOW:
+        if not getattr(settings, "INTERVIEW_ALLOW_START_NOW", False):
+            raise SchedulingNotAllowed("Starting the interview immediately is not enabled. Please choose a slot.")
+        start = timezone.now().replace(microsecond=0)
+        return start, start + timedelta(minutes=SLOT_DURATION_MINUTES)
     for slot in generate_available_slots(days_ahead=days_ahead):
         offered = datetime.fromisoformat(slot["start_iso"])
         if offered == start_dt:

@@ -118,6 +118,25 @@
           {% endfor %}
         </div>
 
+        <div class="db-card mb-3" data-iv-overview-card>
+          <div class="db-card-header">
+            <h2 class="db-card-title"><i class="bi bi-camera-video-fill text-danger"></i> Live &amp; upcoming interviews
+              <span class="text-muted fw-normal small ms-1" data-iv-overview-summary></span></h2>
+            <button class="btn-db-secondary" data-go-panel="interviews">All interviews <i class="bi bi-arrow-right"></i></button>
+          </div>
+          <div class="db-table-wrapper">
+            <table class="db-table">
+              <thead><tr><th>Candidate</th><th>Role</th><th>Started / starts (PKT)</th><th>Progress</th><th>Status</th><th></th></tr></thead>
+              <tbody data-iv-overview-body>
+                {% for iv in interviews %}{% if iv.status == 'live' or iv.status == 'scheduled' or iv.status == 'awaiting_consent' %}
+                <tr><td class="fw-semibold">{{ iv.candidate }}</td><td>{{ iv.role }}</td><td>{{ iv.date }} &middot; {{ iv.time }}</td><td>{{ iv.answered }}/{{ iv.total_questions }} answered</td><td>{% if iv.status == 'live' %}<span class="db-badge db-badge-live iv-live-badge"><i class="bi bi-record-circle-fill"></i> Live now</span>{% elif iv.status == 'completed' %}<span class="db-badge db-badge-completed">Completed</span>{% elif iv.status == 'awaiting_consent' %}<span class="db-badge db-badge-draft">Awaiting consent</span>{% elif iv.status == 'missed' %}<span class="db-badge db-badge-closed">Missed</span>{% else %}<span class="db-badge db-badge-scheduled">Scheduled</span>{% endif %}</td><td></td></tr>
+                {% endif %}{% endfor %}
+                <tr data-iv-overview-empty class="{% if interview_summary.live or interview_summary.upcoming %}d-none{% endif %}"><td colspan="6" class="text-muted text-center py-3">No live or upcoming interviews right now.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="row g-3">
           <div class="col-12 col-lg-7">
             <div class="db-card h-100">
@@ -373,11 +392,15 @@
 
       <!-- ================= PANEL: INTERVIEWS ================= -->
       <div class="db-panel" data-panel="interviews">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2 small text-muted">
+          <span data-iv-summary></span>
+          <span class="ms-auto"><i class="bi bi-arrow-repeat"></i> Updates automatically every 15 seconds</span>
+        </div>
         <div class="db-card mb-3">
           <div class="db-table-wrapper">
             <table class="db-table">
-              <thead><tr><th>Candidate</th><th>Role</th><th>Stage</th><th>Date</th><th>Time (PKT)</th><th>Status</th></tr></thead>
-              <tbody>
+              <thead><tr><th>Candidate</th><th>Role</th><th>Stage</th><th>Date</th><th>Time (PKT)</th><th>Progress</th><th>Score</th><th>Status</th><th></th></tr></thead>
+              <tbody data-iv-body>
                 {% for iv in interviews %}
                 <tr>
                   <td class="fw-semibold">{{ iv.candidate }}</td>
@@ -385,10 +408,13 @@
                   <td>{{ iv.stage }}</td>
                   <td>{{ iv.date }}</td>
                   <td>{{ iv.time }}</td>
-                  <td>{% if iv.status == 'scheduled' %}<span class="db-badge db-badge-scheduled">Scheduled</span>{% else %}<span class="db-badge db-badge-completed">Completed</span>{% endif %}</td>
+                  <td>{{ iv.answered }}/{{ iv.total_questions }}</td>
+                  <td>{% if iv.score is not None %}{{ iv.score|floatformat:1 }}%{% else %}&mdash;{% endif %}</td>
+                  <td>{% if iv.status == 'live' %}<span class="db-badge db-badge-live iv-live-badge"><i class="bi bi-record-circle-fill"></i> Live now</span>{% elif iv.status == 'completed' %}<span class="db-badge db-badge-completed">Completed</span>{% elif iv.status == 'awaiting_consent' %}<span class="db-badge db-badge-draft">Awaiting consent</span>{% elif iv.status == 'missed' %}<span class="db-badge db-badge-closed">Missed</span>{% else %}<span class="db-badge db-badge-scheduled">Scheduled</span>{% endif %}</td>
+                  <td>{% if iv.has_details %}<button type="button" class="btn-db-secondary btn-sm" data-iv-view="{{ iv.interview_id }}">View</button>{% endif %}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-muted text-center py-4">No interviews scheduled yet.</td></tr>
+                <tr><td colspan="9" class="text-muted text-center py-4">No interviews scheduled yet.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -707,7 +733,31 @@
     disconnectIntegrationUrl: "/account/api/integrations/disconnect/"
   };
 </script>
+<div class="modal fade" id="ivDetailModal" tabindex="-1" aria-labelledby="ivDetailTitle" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title h5 mb-0" id="ivDetailTitle">Interview evaluation</h2>
+          <div class="small text-muted" data-iv-detail-sub></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" data-iv-detail-body>
+        <div class="text-center text-muted py-5">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  window.AUTOHR_INTERVIEWS = {
+    listUrl: "{% url 'hr_interviews_list_api' %}",
+    detailUrlTemplate: "{% url 'hr_interview_detail_api' interview_id='00000000-0000-0000-0000-000000000001' %}",
+    resetUrlTemplate: "{% url 'hr_reset_interview_link_api' interview_id='00000000-0000-0000-0000-000000000001' %}"
+  };
+</script>
 <script src="{% static_v 'js/dashboard.js' %}"></script>
+<script src="{% static_v 'js/interviews_dashboard.js' %}"></script>
 <script src="{% static_v 'js/profile_wizard.js' %}"></script>
 <script src="{% static_v 'js/account_profile.js' %}"></script>
 <script src="{% static_v 'js/create_job.js' %}"></script>

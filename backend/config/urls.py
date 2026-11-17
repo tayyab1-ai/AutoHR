@@ -136,6 +136,11 @@ urlpatterns = [
         name="candidate_submit_answer_api",
     ),
     path(
+        "interview/<str:magic_token>/question/<uuid:question_id>/transcribe/",
+        interview_views.candidate_live_transcribe_api,
+        name="candidate_live_transcribe_api",
+    ),
+    path(
         "interview/<str:magic_token>/stage/<int:sequence_order>/complete/",
         interview_views.candidate_complete_stage_api,
         name="candidate_complete_stage_api",
@@ -149,6 +154,17 @@ urlpatterns = [
         "dashboard/rankings/<uuid:ranking_id>/override/",
         interview_views.hr_override_ranking_api,
         name="hr_override_ranking_api",
+    ),
+    path("dashboard/interviews/api/", interview_views.hr_interviews_list_api, name="hr_interviews_list_api"),
+    path(
+        "dashboard/interviews/<uuid:interview_id>/detail/",
+        interview_views.hr_interview_detail_api,
+        name="hr_interview_detail_api",
+    ),
+    path(
+        "dashboard/interviews/<uuid:interview_id>/reset-link/",
+        interview_views.hr_reset_interview_link_api,
+        name="hr_reset_interview_link_api",
     ),
     # Private uploads: HR of the owning company only (no public /media/ serving).
     path("media/resumes/<uuid:job_id>/<str:filename>", media_views.resume_file_view, name="resume_file"),

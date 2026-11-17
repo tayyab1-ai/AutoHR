@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Interview Scheduled — {{ job.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .sched-wrap {
+    min-height: 100vh;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .sched-card {
+    max-width: 560px;
+    width: 100%;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px -8px rgba(15, 23, 42, 0.15);
+    overflow: hidden;
+  }
+  .sched-head {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #ffffff;
+    padding: 1.75rem 2rem;
+  }
+  .sched-body {
+    padding: 2rem;
+  }
+  .sched-when {
+    border: 1px solid #bae6fd;
+    background: #f0f9ff;
+    border-radius: 14px;
+    padding: 1.25rem;
+    text-align: center;
+    margin-bottom: 1.25rem;
+  }
+  .sched-date {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .sched-time {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #0369a1;
+  }
+  .sched-countdown {
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sched-wrap">
+  <div class="sched-card">
+    <div class="sched-head">
+      <span class="badge bg-white text-dark mb-2 px-3 py-1 fw-bold">{{ company.name }}</span>
+      <h2 class="h4 fw-bold mb-1">{{ job.title }}</h2>
+      <div class="small text-white-50">Candidate: <strong class="text-white">{{ candidate.full_name }}</strong></div>
+    </div>
+    <div class="sched-body">
+      <div class="text-center mb-3">
+        <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success-subtle text-success" style="width: 64px; height: 64px;">
+          <i class="bi bi-calendar2-check-fill fs-2"></i>
+        </span>
+      </div>
+      <h3 class="h4 fw-bold text-center mb-2">Your interview is scheduled</h3>
+      <p class="text-muted text-center mb-4">Thank you, {{ candidate.full_name }}. Your time slot and consent have been recorded.</p>
+
+      <div class="sched-when">
+        <div class="sched-date">{{ local_start|date:"l, d F Y" }}</div>
+        <div class="sched-time">{{ local_start|date:"g:i A" }} – {{ local_end|date:"g:i A" }} <span class="text-muted fw-normal">({{ timezone_label }})</span></div>
+        <div class="small text-muted mt-2" data-countdown-wrap>
+          Interview room opens in <strong class="sched-countdown" data-countdown>—</strong>
+        </div>
+      </div>
+
+      <ul class="small text-muted ps-3 mb-0">
+        <li class="mb-1">Open <strong>this same link</strong> at your interview time. The room opens {{ early_minutes }} minutes before the start.</li>
+        <li class="mb-1">Use a quiet room and a device with a working microphone (and camera if available).</li>
+        <li>You can safely close this page now.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // Seconds until the room opens, computed on the server (avoids client clock issues).
+  var remaining = {{ seconds_until_open|default:0 }};
+  var el = document.querySelector("[data-countdown]");
+
+  function fmt(total) {
+    var d = Math.floor(total / 86400);
+    var h = Math.floor((total % 86400) / 3600);
+    var m = Math.floor((total % 3600) / 60);
+    var s = total % 60;
+    var parts = [];
+    if (d) parts.push(d + "d");
+    if (d || h) parts.push(h + "h");
+    parts.push(String(m).padStart(2, "0") + "m");
+    parts.push(String(s).padStart(2, "0") + "s");
+    return parts.join(" ");
+  }
+
+  function tick() {
+    if (remaining <= 0) {
+      // Room is open: reload this link to enter.
+      window.location.reload();
+      return;
+    }
+    if (el) el.textContent = fmt(remaining);
+    remaining -= 1;
+    window.setTimeout(tick, 1000);
+  }
+  tick();
+});
+</script>
+{% endblock %}

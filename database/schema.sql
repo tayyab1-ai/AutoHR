@@ -434,6 +434,8 @@ CREATE TABLE candidate_invitations (
     is_used BOOLEAN NOT NULL DEFAULT FALSE,
     sent_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     accepted_at TIMESTAMPTZ,
+    room_lock_hash VARCHAR(64),
+    room_opened_at TIMESTAMPTZ,
     CONSTRAINT uq_invitation_token UNIQUE (magic_token)
 );
 

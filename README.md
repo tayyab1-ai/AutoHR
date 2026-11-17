@@ -28,7 +28,7 @@ A Pakistan-localized hiring workspace for HR teams. Django serves the marketing 
 ## Interview integrity rules
 
 - Invitations: only **shortlisted / invited / scheduled (not started)** candidates can be (re)invited. Re-sending keeps the same active link; once the candidate has started, re-inviting is refused.
-- Scheduling: only slots the portal offers (office hours, `TIME_ZONE` = Asia/Karachi) are accepted; no rescheduling after the interview starts.
+- Scheduling: only slots the portal offers (office hours, `TIME_ZONE` = Asia/Karachi) are accepted, or **Start interview now** (`INTERVIEW_ALLOW_START_NOW`, on by default); no rescheduling after the interview starts.
 - Room: requires a valid, unexpired link + consent; opens `INTERVIEW_ROOM_EARLY_ACCESS_MINUTES` (15) before the slot; a completed interview cannot be reopened.
 - Answers: one submission per question; stages must be completed in order and every question answered. Unanswered questions score **0**.
 - Candidates are stored **per company** (`candidates.company_id`), so one company's edits never show up in another's dashboard.

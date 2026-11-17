@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ error_title|default:"Invitation Unavailable" }} — AutoHR{% endblock %}
+{% block title %}{{ error_title|default:"Invitation Unavailable" }}{% endblock %}
 
 {% block content %}
 <div class="min-vh-100 d-flex align-items-center justify-content-center bg-light py-5">
@@ -10,10 +10,9 @@
       </span>
     </div>
     <h3 class="fw-bold mb-2">{{ error_title|default:"Invitation Unavailable" }}</h3>
-    <p class="text-muted mb-4">{{ error_message|default:"This interview link is no longer accessible or has expired." }}</p>
-    <div>
-      <a href="/" class="btn btn-primary px-4 py-2 fw-semibold">Return to Home</a>
-    </div>
+    <p class="text-muted mb-3">{{ error_message|default:"This interview link is no longer accessible or has expired." }}</p>
+    {# Candidate-facing page: intentionally no links into the AutoHR site or dashboard. #}
+    <p class="small text-muted mb-0">If you have questions, please reply to the email from the hiring team. You can close this page.</p>
   </div>
 </div>
 {% endblock %}

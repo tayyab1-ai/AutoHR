@@ -85,6 +85,9 @@ CSRF_TRUSTED_ORIGINS = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS", [])
 # Only trust X-Forwarded-For when running behind a known reverse proxy.
 TRUST_X_FORWARDED_FOR = _env_bool("TRUST_X_FORWARDED_FOR", False)
 
+# Offer candidates a "Start interview now" option (AI interviews need no human interviewer).
+INTERVIEW_ALLOW_START_NOW = _env_bool("INTERVIEW_ALLOW_START_NOW", True)
+
 # Candidates may enter the interview room this many minutes before their slot.
 INTERVIEW_ROOM_EARLY_ACCESS_MINUTES = int(os.environ.get("INTERVIEW_ROOM_EARLY_ACCESS_MINUTES", "15"))
 

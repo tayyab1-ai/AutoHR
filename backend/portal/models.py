@@ -273,6 +273,9 @@ class CandidateInvitation(models.Model):
     is_used = models.BooleanField(default=False)
     sent_at = models.DateTimeField(auto_now_add=True)
     accepted_at = models.DateTimeField(blank=True, null=True)
+    # Single-use link: hash of the secret cookie of the first browser that opened the room.
+    room_lock_hash = models.CharField(max_length=64, blank=True, null=True)
+    room_opened_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False

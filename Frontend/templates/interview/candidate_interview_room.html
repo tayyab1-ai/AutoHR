@@ -128,6 +128,21 @@
     transition: height 0.1s ease;
   }
 </style>
+<style>
+  .mic-meter {
+    width: 140px;
+    height: 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+  }
+  .mic-meter-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #22c55e, #eab308 70%, #ef4444);
+    transition: width 0.08s linear;
+  }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -184,7 +199,8 @@
                 <!-- Live transcript preview / editable box -->
                 <div class="mb-2 d-none" id="transcript-box">
                   <label class="form-label small text-info mb-1"><i class="bi bi-mic me-1"></i> Live Transcription / Answer:</label>
-                  <textarea class="form-control form-control-sm bg-dark text-light border-secondary" id="answer-transcript-input" rows="3" placeholder="Speak your answer or type here..."></textarea>
+                  <textarea class="form-control form-control-sm bg-dark text-light border-secondary" id="answer-transcript-input" rows="4" placeholder="Click Start Answering and speak — your words appear here live. You can also type."></textarea>
+                  <div class="small text-info mt-1" id="transcript-status" aria-live="polite"></div>
                 </div>
                 <!-- Scoring feedback toast -->
                 <div class="alert alert-dark border-secondary py-2 px-3 small d-none" id="ai-feedback-alert"></div>
@@ -193,16 +209,21 @@
               <!-- Audio waveform and timer -->
               <div class="border-top border-secondary pt-3 mt-3 d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2">
-                  <span class="small text-white-50">Audio Feed:</span>
-                  <div class="audio-bar-visualizer" id="audio-bars">
-                    <span class="audio-bar" style="height: 12px;"></span>
-                    <span class="audio-bar" style="height: 18px;"></span>
-                    <span class="audio-bar" style="height: 8px;"></span>
-                    <span class="audio-bar" style="height: 22px;"></span>
-                    <span class="audio-bar" style="height: 14px;"></span>
-                  </div>
+                  <span class="small text-white-50">Mic level:</span>
+                  <div class="mic-meter" aria-label="Microphone level"><div class="mic-meter-fill" id="mic-meter-fill"></div></div>
                 </div>
                 <div class="fw-mono text-warning fs-5 fw-bold" id="recording-timer">00:00</div>
+              </div>
+              <div class="d-flex align-items-center gap-2 mt-2">
+                <label for="mic-select" class="small text-white-50 mb-0 text-nowrap"><i class="bi bi-mic-fill me-1"></i>Microphone:</label>
+                <select id="mic-select" class="form-select form-select-sm bg-dark text-light border-secondary">
+                  <option value="">Default microphone</option>
+                </select>
+              </div>
+              <div class="alert alert-warning py-2 px-3 small mt-2 mb-0 d-none" id="mic-silent-warning" role="alert">
+                <i class="bi bi-volume-mute-fill me-1"></i>
+                We can't hear you. Check that your microphone is not muted, choose another microphone above,
+                or allow microphone access (click the lock icon next to the address bar).
               </div>
             </div>
 
@@ -300,6 +321,20 @@ document.addEventListener("DOMContentLoaded", function () {
   var secondsElapsed = 0;
   var recognition = null;
 
+  // Live transcription state
+  var micStream = null;            // audio-only stream used for recording
+  var recorderMime = "";
+  var liveTimer = null;
+  var liveInFlight = false;
+  var liveSeq = 0;                 // ignore out-of-order transcription responses
+  var lastSentChunkCount = 0;
+  var whisperText = "";            // authoritative transcript from the server
+  var speechFinal = "";            // browser speech recognition (instant preview)
+  var speechInterim = "";
+  var userEdited = false;          // stop auto-filling once the candidate types
+  var transcriptStatus = document.getElementById("transcript-status");
+  var LIVE_INTERVAL_MS = 3000;
+
   var currentStageOrder = 1;
   var currentQuestions = [];
   var currentQuestionIdx = 0;
@@ -309,6 +344,7 @@ document.addEventListener("DOMContentLoaded", function () {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(function (stream) {
         currentStream = stream;
+        populateMicList();
         if (videoElem) {
           videoElem.srcObject = stream;
           if (placeholder) placeholder.classList.add("d-none");
@@ -332,14 +368,265 @@ document.addEventListener("DOMContentLoaded", function () {
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognition.onresult = function (event) {
-      var transcript = "";
-      for (var i = event.resultIndex; i < event.results.length; ++i) {
-        transcript += event.results[i][0].transcript;
+      var finalText = "";
+      var interimText = "";
+      for (var i = 0; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) finalText += event.results[i][0].transcript + " ";
+        else interimText += event.results[i][0].transcript;
       }
-      if (transcriptInput && transcript) {
-        transcriptInput.value = (transcriptInput.value + " " + transcript).trim();
+      speechFinal = finalText.trim();
+      speechInterim = interimText.trim();
+      renderTranscript();
+    };
+    recognition.onerror = function (event) {
+      // "no-speech" / "aborted" are normal; others mean the browser engine is unavailable.
+      if (event && event.error && event.error !== "no-speech" && event.error !== "aborted") {
+        console.warn("Browser speech recognition unavailable:", event.error);
       }
     };
+    recognition.onend = function () {
+      // Chrome stops after a pause; keep listening while the candidate is still answering.
+      if (isRecording) {
+        try { recognition.start(); } catch (e) {}
+      }
+    };
+  }
+
+  function setTranscriptStatus(text) {
+    if (transcriptStatus) transcriptStatus.textContent = text || "";
+  }
+
+  // Show the best transcript we have: server (Whisper) text wins; browser speech fills the gap.
+  function renderTranscript() {
+    if (!transcriptInput || userEdited) return;
+    var text = whisperText;
+    var instant = (speechFinal + " " + speechInterim).trim();
+    if (!text) text = instant;
+    else if (instant.length > text.length + 15) text = instant;  // browser is ahead of the last upload
+    transcriptInput.value = text;
+    transcriptInput.scrollTop = transcriptInput.scrollHeight;
+  }
+
+  if (transcriptInput) {
+    transcriptInput.addEventListener("input", function () {
+      userEdited = true;
+      setTranscriptStatus("You are editing the answer manually.");
+    });
+  }
+
+  function pickRecorderMime() {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+    var types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+    for (var i = 0; i < types.length; i++) {
+      if (MediaRecorder.isTypeSupported(types[i])) return types[i];
+    }
+    return "";
+  }
+
+  function audioFileName(mime) {
+    if (mime.indexOf("ogg") !== -1) return "answer.ogg";
+    if (mime.indexOf("mp4") !== -1) return "answer.m4a";
+    return "answer.webm";
+  }
+
+  // ---------------- Microphone: device picker, level meter, silence warning ----------------
+  var micSelect = document.getElementById("mic-select");
+  var micMeterFill = document.getElementById("mic-meter-fill");
+  var micSilentWarning = document.getElementById("mic-silent-warning");
+  var selectedMicId = "";
+  try { selectedMicId = window.localStorage.getItem("autohr_mic_id") || ""; } catch (e) {}
+  var audioCtx = null;
+  var meterRaf = null;
+  var meterSource = null;
+  var heardVoice = false;
+  var silentSince = 0;
+
+  function populateMicList() {
+    if (!micSelect || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices().then(function (devices) {
+      var mics = devices.filter(function (d) { return d.kind === "audioinput"; });
+      micSelect.innerHTML = "";
+      mics.forEach(function (d, i) {
+        var opt = document.createElement("option");
+        opt.value = d.deviceId;
+        opt.textContent = d.label || ("Microphone " + (i + 1));
+        micSelect.appendChild(opt);
+      });
+      if (!mics.length) {
+        var none = document.createElement("option");
+        none.value = "";
+        none.textContent = "No microphone found";
+        micSelect.appendChild(none);
+      }
+      var active = micStream && micStream.getAudioTracks()[0] && micStream.getAudioTracks()[0].getSettings
+        ? micStream.getAudioTracks()[0].getSettings().deviceId : "";
+      micSelect.value = active || selectedMicId || (mics[0] ? mics[0].deviceId : "");
+    }).catch(function () {});
+  }
+
+  function stopMeter() {
+    if (meterRaf) { clearInterval(meterRaf); meterRaf = null; }
+    if (meterSource) { try { meterSource.disconnect(); } catch (e) {} meterSource = null; }
+    if (micMeterFill) micMeterFill.style.width = "0%";
+  }
+
+  // Live level meter + "can't hear you" warning while recording.
+  function startMeter(stream) {
+    stopMeter();
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    var analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    meterSource = audioCtx.createMediaStreamSource(stream);
+    meterSource.connect(analyser);
+    var data = new Uint8Array(analyser.fftSize);
+    heardVoice = false;
+    silentSince = Date.now();
+    if (micSilentWarning) micSilentWarning.classList.add("d-none");
+    // setInterval (not requestAnimationFrame) so the meter keeps working when the tab is not focused.
+    meterRaf = setInterval(function () {
+      analyser.getByteTimeDomainData(data);
+      var sum = 0;
+      for (var i = 0; i < data.length; i++) {
+        var v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      var rms = Math.sqrt(sum / data.length);
+      var pct = Math.min(100, Math.round(rms * 400));
+      if (micMeterFill) micMeterFill.style.width = pct + "%";
+      if (isRecording) {
+        if (rms > 0.02) {
+          heardVoice = true;
+          silentSince = Date.now();
+          if (micSilentWarning) micSilentWarning.classList.add("d-none");
+        } else if (Date.now() - silentSince > 4000 && micSilentWarning) {
+          micSilentWarning.classList.remove("d-none");
+        }
+      }
+    }, 100);
+  }
+
+  function releaseMicStream() {
+    if (micStream) {
+      micStream.getTracks().forEach(function (t) { t.stop(); });
+      micStream = null;
+    }
+  }
+
+  // Dedicated audio-only stream for the chosen microphone, with voice processing enabled.
+  function getMicStream() {
+    if (micStream && micStream.getAudioTracks().some(function (t) { return t.readyState === "live"; })) {
+      return Promise.resolve(micStream);
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.reject(new Error("This browser cannot access the microphone."));
+    }
+    var audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
+    if (selectedMicId) audio.deviceId = { exact: selectedMicId };
+    return navigator.mediaDevices.getUserMedia({ audio: audio })
+      .catch(function (err) {
+        // A saved device may have been unplugged: fall back to the default microphone.
+        if (selectedMicId && err && (err.name === "OverconstrainedError" || err.name === "NotFoundError")) {
+          selectedMicId = "";
+          delete audio.deviceId;
+          return navigator.mediaDevices.getUserMedia({ audio: audio });
+        }
+        throw err;
+      })
+      .then(function (stream) {
+        micStream = stream;
+        populateMicList();
+        return stream;
+      });
+  }
+
+  if (micSelect) {
+    micSelect.addEventListener("change", function () {
+      selectedMicId = micSelect.value;
+      try { window.localStorage.setItem("autohr_mic_id", selectedMicId); } catch (e) {}
+      if (isRecording) {
+        setTranscriptStatus("Microphone changed — stop and start answering again to use it.");
+        return;
+      }
+      releaseMicStream();
+      // Preview the newly chosen mic on the level meter.
+      getMicStream().then(startMeter).catch(function () {});
+    });
+  }
+  if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+    navigator.mediaDevices.addEventListener("devicechange", populateMicList);
+  }
+
+  function currentAudioBlob() {
+    return new Blob(recordedChunks, { type: recorderMime || "audio/webm" });
+  }
+
+  // Send everything recorded so far and show the transcript (called every few seconds).
+  function sendLiveTranscription(isFinal, attempt) {
+    attempt = attempt || 0;
+    var q = currentQuestions[currentQuestionIdx];
+    if (!q) return Promise.resolve();
+    if (!recordedChunks.length) {
+      if (isFinal) setTranscriptStatus("No audio was captured from your microphone. Choose another microphone, or type your answer.");
+      return Promise.resolve();
+    }
+    if (!isFinal && (liveInFlight || recordedChunks.length === lastSentChunkCount)) return Promise.resolve();
+    liveInFlight = true;
+    lastSentChunkCount = recordedChunks.length;
+    var seq = ++liveSeq;
+    var fd = new FormData();
+    fd.append("audio", currentAudioBlob(), audioFileName(recorderMime));
+    setTranscriptStatus(isFinal ? "Finalizing transcript…" : "Listening… transcribing");
+    return fetch("/interview/" + magicToken + "/question/" + q.id + "/transcribe/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken },
+      body: fd
+    })
+      .then(readJson)
+      .then(function (res) {
+        if (seq !== liveSeq) return;  // a newer request already answered
+        if (res.ok) {
+          if (res.text) whisperText = res.text;
+          renderTranscript();
+          if (isRecording) {
+            setTranscriptStatus(whisperText ? "Listening…" : (heardVoice ? "Listening… (waiting for words)" : "Listening… we can't hear you yet — check the mic level bar."));
+          } else {
+            setTranscriptStatus(whisperText ? "Transcript ready — review it, then submit." : "No speech was detected. Check your microphone, or type your answer.");
+          }
+        } else if (res.throttled && isFinal && attempt < 3) {
+          // The final transcript must not be lost to the rate limit: retry shortly.
+          liveInFlight = false;
+          return new Promise(function (resolve) { setTimeout(resolve, 2100); })
+            .then(function () { return sendLiveTranscription(true, attempt + 1); });
+        } else if (!res.throttled) {
+          setTranscriptStatus(res.error || "Live transcription paused.");
+        }
+      })
+      .catch(function () {
+        setTranscriptStatus("Network issue — live transcription paused.");
+      })
+      .finally(function () {
+        liveInFlight = false;
+      });
+  }
+
+  function stopLiveLoop() {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  }
+
+  function resetTranscriptState() {
+    stopLiveLoop();
+    recordedChunks = [];
+    lastSentChunkCount = 0;
+    liveInFlight = false;
+    liveSeq++;
+    whisperText = "";
+    speechFinal = "";
+    speechInterim = "";
+    userEdited = false;
+    setTranscriptStatus("");
   }
 
   function updateStageBadges(activeOrder) {
@@ -397,6 +684,7 @@ document.addEventListener("DOMContentLoaded", function () {
       "Question " + (idx + 1) + " of " + currentQuestions.length;
     document.getElementById("current-question-text").textContent = '"' + q.question_text + '"';
 
+    resetTranscriptState();
     if (transcriptInput) transcriptInput.value = "";
     if (transcriptBox) transcriptBox.classList.remove("d-none");
     if (feedbackAlert) feedbackAlert.classList.add("d-none");
@@ -411,55 +699,96 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Answer recording handler
-  if (btnRecord) {
-    btnRecord.addEventListener("click", function () {
-      if (!isRecording) {
-        // Start recording
-        isRecording = true;
-        recordedChunks = [];
+  function startTimer() {
+    secondsElapsed = 0;
+    if (timerElem) timerElem.textContent = "00:00";
+    timerInterval = setInterval(function () {
+      secondsElapsed++;
+      var m = String(Math.floor(secondsElapsed / 60)).padStart(2, "0");
+      var s = String(secondsElapsed % 60).padStart(2, "0");
+      if (timerElem) timerElem.textContent = m + ":" + s;
+    }, 1000);
+  }
+
+  function startAnswering() {
+    isRecording = true;
+    resetTranscriptState();
+    btnRecord.disabled = true;
+    btnRecord.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Starting microphone…';
+    if (feedbackAlert) feedbackAlert.classList.add("d-none");
+
+    getMicStream()
+      .then(function (stream) {
+        recorderMime = pickRecorderMime();
+        mediaRecorder = recorderMime ? new MediaRecorder(stream, { mimeType: recorderMime }) : new MediaRecorder(stream);
+        recorderMime = mediaRecorder.mimeType || recorderMime || "audio/webm";
+        mediaRecorder.ondataavailable = function (e) {
+          if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+        };
+        mediaRecorder.start(1000);
+        startMeter(stream);
+        liveTimer = setInterval(function () { sendLiveTranscription(false); }, LIVE_INTERVAL_MS);
+        setTranscriptStatus("Listening… speak now");
+      })
+      .catch(function (err) {
+        console.warn("Microphone unavailable:", err);
+        mediaRecorder = null;
+        setTranscriptStatus("Microphone not available — please allow microphone access, or type your answer below.");
+      })
+      .finally(function () {
+        if (!isRecording) return;
+        btnRecord.disabled = false;
         btnRecord.classList.remove("btn-danger");
         btnRecord.classList.add("btn-warning");
         btnRecord.innerHTML = '<i class="bi bi-stop-circle me-1"></i> Stop Recording';
         if (liveBadge) liveBadge.classList.remove("d-none");
-
-        if (currentStream && window.MediaRecorder) {
-          try {
-            mediaRecorder = new MediaRecorder(currentStream, { mimeType: "audio/webm" });
-            mediaRecorder.ondataavailable = function (e) {
-              if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-            mediaRecorder.start(250);
-          } catch (e) {
-            console.warn("MediaRecorder start failed, audio streaming fallback:", e);
-          }
-        }
-
         if (recognition) {
           try { recognition.start(); } catch (e) {}
         }
+        startTimer();
+      });
+  }
 
-        secondsElapsed = 0;
-        timerInterval = setInterval(function () {
-          secondsElapsed++;
-          var m = String(Math.floor(secondsElapsed / 60)).padStart(2, "0");
-          var s = String(secondsElapsed % 60).padStart(2, "0");
-          if (timerElem) timerElem.textContent = m + ":" + s;
-        }, 1000);
-      } else {
-        // Stop recording
-        isRecording = false;
-        clearInterval(timerInterval);
-        btnRecord.classList.add("d-none");
-        if (btnNext) btnNext.classList.remove("d-none");
-        if (liveBadge) liveBadge.classList.add("d-none");
+  function stopAnswering() {
+    isRecording = false;
+    clearInterval(timerInterval);
+    stopLiveLoop();
+    if (micSilentWarning) micSilentWarning.classList.add("d-none");
+    if (liveBadge) liveBadge.classList.add("d-none");
+    if (recognition) {
+      try { recognition.stop(); } catch (e) {}
+    }
+    btnRecord.classList.add("d-none");
+    btnNext.classList.remove("d-none");
+    btnNext.disabled = true;
+    btnNext.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Finalizing transcript…';
 
-        if (mediaRecorder && mediaRecorder.state !== "inactive") {
-          mediaRecorder.stop();
-        }
-        if (recognition) {
-          try { recognition.stop(); } catch (e) {}
-        }
-      }
+    function finish() {
+      btnNext.disabled = false;
+      btnNext.innerHTML = 'Submit &amp; Next Question <i class="bi bi-arrow-right ms-1"></i>';
+    }
+
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.onstop = function () {
+        // Wait for any in-flight upload, then transcribe the complete recording once.
+        var waitStart = Date.now();
+        (function waitThenFinal() {
+          if (liveInFlight && Date.now() - waitStart < 8000) { setTimeout(waitThenFinal, 200); return; }
+          sendLiveTranscription(true).finally(finish);
+        })();
+      };
+      mediaRecorder.stop();
+    } else {
+      finish();
+      setTranscriptStatus(transcriptInput && transcriptInput.value.trim() ? "" : "No audio recorded. Please type your answer.");
+    }
+  }
+
+  if (btnRecord) {
+    btnRecord.addEventListener("click", function () {
+      if (btnRecord.disabled) return;
+      if (!isRecording) startAnswering();
+      else stopAnswering();
     });
   }
 
@@ -475,8 +804,7 @@ document.addEventListener("DOMContentLoaded", function () {
       fd.append("duration_seconds", String(secondsElapsed));
 
       if (recordedChunks.length > 0) {
-        var audioBlob = new Blob(recordedChunks, { type: "audio/webm" });
-        fd.append("audio", audioBlob, "answer.webm");
+        fd.append("audio", currentAudioBlob(), audioFileName(recorderMime));
       }
 
       btnNext.disabled = true;
@@ -504,11 +832,9 @@ document.addEventListener("DOMContentLoaded", function () {
           return;
         }
 
-        if (res.ok && res.question && res.question.scores) {
-          var sc = res.question.scores;
-          feedbackAlert.innerHTML =
-            '<strong>AI Feedback:</strong> Comm: ' + sc.communication + '/10 &middot; Tech: ' + sc.technical + '/10 &middot; Problem-Solving: ' + sc.problem_solving + '/10<br>' +
-            '<span class="text-white-50 small">' + (res.question.ai_rationale || "") + '</span>';
+        if (res.ok) {
+          // Evaluation stays with the hiring team; the candidate only sees a confirmation.
+          feedbackAlert.innerHTML = '<i class="bi bi-check-circle-fill text-success me-1"></i> Answer saved. Moving to the next question…';
           feedbackAlert.classList.remove("d-none");
         }
 
@@ -552,9 +878,8 @@ document.addEventListener("DOMContentLoaded", function () {
           '<div class="text-center py-5">' +
           '<div class="mb-3"><i class="bi bi-check-circle-fill text-success fs-1"></i></div>' +
           '<h3 class="fw-bold text-light mb-2">AI Interview Completed!</h3>' +
-          '<p class="text-white-50 mb-3">All 3 stages (Screening, Technical, Behavioral) have been completed and evaluated.</p>' +
-          '<div class="badge bg-primary-subtle text-primary fs-6 px-3 py-2 mb-3">Overall Composite Score: ' + (res.composite_interview_score || 0) + '%</div>' +
-          '<p class="small text-muted">The hiring team at {{ company.name }} will review your full scorecard and final ranking on the dashboard.</p>' +
+          '<p class="text-white-50 mb-3">Thank you! All 3 stages (Screening, Technical, Behavioral) are complete and your answers have been submitted.</p>' +
+          '<p class="small text-muted">The hiring team at {{ company.name|escapejs }} will review your interview and contact you about the next steps. You can close this page.</p>' +
           '</div>';
         btnRecord.classList.add("d-none");
         btnNext.classList.add("d-none");

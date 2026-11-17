@@ -32,7 +32,15 @@ from .models import (
 
 _logger = logging.getLogger(__name__)
 
-WHISPER_MODEL = "whisper-large-v3"
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "whisper-large-v3").strip() or "whisper-large-v3"
+# Faster model for the live (every few seconds) preview while the candidate speaks.
+WHISPER_LIVE_MODEL = os.environ.get("WHISPER_LIVE_MODEL", "whisper-large-v3-turbo").strip() or "whisper-large-v3-turbo"
+
+# Whisper invents these on silence / background noise; drop them when the segment looks like non-speech.
+_SILENCE_HALLUCINATIONS = {
+    "you", "you.", "thank you", "thank you.", "thanks for watching", "thanks for watching!", "bye", "bye.", ".",
+    "gracias", "gracias.", "this is a job interview answer spoken in english.",
+}
 CV_WEIGHT_RATIO = Decimal("0.40")
 INTERVIEW_WEIGHT_RATIO = Decimal("0.60")
 
@@ -57,24 +65,64 @@ def _quantize_100(value: float | Decimal | int | str) -> Decimal:
     return clamped.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def transcribe_candidate_audio(audio_bytes: bytes, filename: str = "answer.webm") -> str:
-    """Transcribe candidate recorded audio using Groq Whisper API (whisper-large-v3)."""
+def transcribe_candidate_audio(audio_bytes: bytes, filename: str = "answer.webm", *, live: bool = False) -> str:
+    """Transcribe candidate audio with Groq Whisper.
+
+    ``live=True`` uses the faster turbo model for the real-time preview. Segments that Whisper
+    itself marks as probable non-speech (silence, hum) are dropped so silence does not turn
+    into "you" / "thank you".
+    """
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key or "your-groq" in api_key.lower():
         _logger.warning("GROQ_API_KEY placeholder detected. Audio transcription falling back.")
         return ""
 
+    # English by default. Auto-detection mislabels quiet/noisy audio (e.g. outputs Spanish).
+    # Set WHISPER_LANGUAGE=auto in .env to let Whisper detect the language instead.
+    language = (os.environ.get("WHISPER_LANGUAGE", "en").strip() or "en").lower()
+    if language == "auto":
+        language = None
     try:
         client = Groq(api_key=api_key)
-        transcription = client.audio.transcriptions.create(
-            file=(filename, audio_bytes),
-            model=WHISPER_MODEL,
-            response_format="json",
-        )
-        return (getattr(transcription, "text", "") or "").strip()
+        kwargs = {
+            "file": (filename, audio_bytes),
+            "model": WHISPER_LIVE_MODEL if live else WHISPER_MODEL,
+            "response_format": "verbose_json",
+            "temperature": 0.0,
+        }
+        if language:
+            kwargs["language"] = language
+            if language == "en":
+                # Light context nudges Whisper towards English interview vocabulary.
+                kwargs["prompt"] = "This is a job interview answer spoken in English."
+        transcription = client.audio.transcriptions.create(**kwargs)
     except Exception as exc:
         _logger.warning("Groq Whisper transcription failed: %s", exc)
         return ""
+
+    segments = getattr(transcription, "segments", None)
+    if segments is None and isinstance(transcription, dict):
+        segments = transcription.get("segments")
+    if not segments:
+        text = (getattr(transcription, "text", "") or "").strip()
+        return "" if text.lower() in _SILENCE_HALLUCINATIONS else text
+
+    kept = []
+    for seg in segments:
+        get = seg.get if isinstance(seg, dict) else (lambda k, d=None, _s=seg: getattr(_s, k, d))
+        seg_text = (get("text", "") or "").strip()
+        no_speech = float(get("no_speech_prob", 0.0) or 0.0)
+        avg_logprob = float(get("avg_logprob", 0.0) or 0.0)
+        if not seg_text:
+            continue
+        # Whisper's standard low-confidence cutoff: text "heard" in static/noise scores below -1.0.
+        if avg_logprob < -1.0:
+            continue
+        if no_speech > 0.6 or (no_speech > 0.3 and seg_text.lower() in _SILENCE_HALLUCINATIONS):
+            continue
+        kept.append(seg_text)
+    text = " ".join(kept).strip()
+    return "" if text.lower() in _SILENCE_HALLUCINATIONS else text
 
 
 def _save_interview_audio(stage_id: str, question_num: int, audio_bytes: bytes, filename: str) -> str:
